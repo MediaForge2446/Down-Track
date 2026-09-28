@@ -22,7 +22,7 @@ jobs:
       - name: Restore
         run: dotnet restore DownTrack.sln
       - name: Build
-        run: dotnet build DownTrack.sln -c Release --no-restore --arch x64
+        run: dotnet build DownTrack.sln -c Release --no-restore
       - name: Publish
         run: dotnet publish src/DownTrack.App/DownTrack.App.csproj -c Release -r win-x64 --self-contained false -o publish/DownTrack
       - name: Upload artifact
