@@ -96,8 +96,8 @@ internal static class Program
 
     private static unsafe void Main(string[] args)
     {
-        _language = DetectLanguage();
         _smokeTest = args.Any(a => string.Equals(a, "--smoke-test", StringComparison.OrdinalIgnoreCase));
+        _language = _smokeTest ? "en" : DetectLanguage();
 
         if (!CreateMainWindow())
         {
