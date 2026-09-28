@@ -1773,10 +1773,10 @@ internal static class Program
         uint wMsgFilterMax);
 
     [DllImport("user32.dll")]
-    private static extern nint DispatchMessageW(MSG* lpMsg);
+    private static extern unsafe nint DispatchMessageW(MSG* lpMsg);
 
     [DllImport("user32.dll")]
-    private static extern int TranslateMessage(MSG* lpMsg);
+    private static extern unsafe int TranslateMessage(MSG* lpMsg);
 
     [DllImport("user32.dll")]
     private static extern nint PostQuitMessage(int nExitCode);
@@ -1864,7 +1864,7 @@ internal static class Program
         uint colorRef);
 
     [DllImport("gdi32.dll", CharSet = CharSet.Unicode)]
-    private static extern nint CreateFontW(
+    private static extern unsafe nint CreateFontW(
         int cHeight,
         int cWidth,
         int cEscapement,
@@ -1968,7 +1968,7 @@ internal static class Program
         out nint ppv);
 
     [DllImport("user32.dll")]
-    private static extern int FillRect(
+    private static extern unsafe int FillRect(
         nint hDC,
         RECT* lpRect,
         nint hBrush);
