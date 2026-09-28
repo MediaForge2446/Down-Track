@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using MessageBox = System.Windows.MessageBox;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
