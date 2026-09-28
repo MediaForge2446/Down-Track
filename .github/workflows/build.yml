@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: downtrack-build
+  group: downtrack-build-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -25,6 +25,24 @@ jobs:
         run: dotnet build DownTrack.sln -c Release --no-restore
       - name: Publish
         run: dotnet publish src/DownTrack.App/DownTrack.App.csproj -c Release -r win-x64 --self-contained false -o publish/DownTrack
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'publish/DownTrack/DownTrack.exe'
+          if (-not (Test-Path $exe)) { throw "Published executable not found: $exe" }
+          $process = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          try {
+            Start-Sleep -Seconds 5
+            if ($process.HasExited) {
+              throw "DownTrack exited during smoke test with code $($process.ExitCode)."
+            }
+            Write-Host "DownTrack started successfully (PID $($process.Id))."
+          }
+          finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+            Start-Sleep -Milliseconds 500
+          }
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
