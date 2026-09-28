@@ -11,7 +11,7 @@ using Microsoft.Win32;
 
 namespace DownTrack.WebSetup;
 
-internal static unsafe class Program
+internal static class Program
 {
     private const string LatestZipUrl =
         "https://github.com/MediaForge2446/Down-Track/releases/latest/download/DownTrack-win-x64.zip";
@@ -94,7 +94,7 @@ internal static unsafe class Program
         ("zh-TW", "繁體中文")
     };
 
-    private static void Main(string[] args)
+    private static unsafe void Main(string[] args)
     {
         _language = DetectLanguage();
         _smokeTest = args.Any(a => string.Equals(a, "--smoke-test", StringComparison.OrdinalIgnoreCase));
@@ -583,7 +583,7 @@ internal static unsafe class Program
         }
     }
 
-    private static void CreateShellLink(
+    private static unsafe void CreateShellLink(
         string shortcutPath,
         string targetPath,
         string description,
@@ -670,7 +670,7 @@ internal static unsafe class Program
         }
     }
 
-    private static void ReleaseComInterface(nint ptr)
+    private static unsafe void ReleaseComInterface(nint ptr)
     {
         if (ptr == nint.Zero)
         {
@@ -1090,7 +1090,7 @@ internal static unsafe class Program
         string GenericError,
         string Retry);
 
-    private static bool CreateMainWindow()
+    private static unsafe bool CreateMainWindow()
     {
         var hInstance = GetModuleHandleW(nint.Zero);
         const string className = "DownTrackWebSetupWindow";
@@ -1139,7 +1139,7 @@ internal static unsafe class Program
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
-    private static nint WindowProc(nint hwnd, uint msg, nint wParam, nint lParam)
+    private static unsafe nint WindowProc(nint hwnd, uint msg, nint wParam, nint lParam)
     {
         switch (msg)
         {
@@ -1229,7 +1229,7 @@ internal static unsafe class Program
         return DefWindowProcW(hwnd, msg, wParam, lParam);
     }
 
-    private static void DrawWindow(nint hdc)
+    private static unsafe void DrawWindow(nint hdc)
     {
         RECT rect;
         GetClientRect(_hwnd, &rect);
@@ -1455,7 +1455,7 @@ internal static unsafe class Program
         SelectObject(hdc, oldPen);
     }
 
-    private static void DrawTextLine(
+    private static unsafe void DrawTextLine(
         nint hdc,
         string text,
         int x,
@@ -1515,7 +1515,7 @@ internal static unsafe class Program
     private static bool IsRetryButton(int x, int y) =>
         x >= 155 && x <= 305 && y >= 238 && y <= 280;
 
-    private static void ShowLanguageMenu(nint hwnd)
+    private static unsafe void ShowLanguageMenu(nint hwnd)
     {
         var menu = CreatePopupMenu();
         if (menu == nint.Zero)
@@ -1645,7 +1645,7 @@ internal static unsafe class Program
 
         private NativeFont(nint handle) => Handle = handle;
 
-        public static NativeFont Create(int size, bool bold)
+        public static unsafe NativeFont Create(int size, bool bold)
         {
             fixed (char* face = "Segoe UI Variable Text")
             {
@@ -1716,7 +1716,7 @@ internal static unsafe class Program
         public uint Private;
     }
 
-    private struct PAINTSTRUCT
+    private unsafe struct PAINTSTRUCT
     {
         public nint Hdc;
         public int Erase;
@@ -1726,7 +1726,7 @@ internal static unsafe class Program
         public fixed byte Reserved[32];
     }
 
-    private struct WNDCLASSW
+    private unsafe struct WNDCLASSW
     {
         public uint style;
         public delegate* unmanaged[Stdcall]<nint, uint, nint, nint, nint> lpfnWndProc;
@@ -1741,13 +1741,13 @@ internal static unsafe class Program
     }
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern ushort RegisterClassW(WNDCLASSW* lpWndClass);
+    private static extern unsafe ushort RegisterClassW(WNDCLASSW* lpWndClass);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern nint CreateWindowExW(
+    private static extern unsafe nint CreateWindowExW(
         uint dwExStyle,
         char* lpClassName,
-        char* lpWindowName,
+        string lpWindowName,
         uint dwStyle,
         int X,
         int Y,
@@ -1766,7 +1766,7 @@ internal static unsafe class Program
         nint lParam);
 
     [DllImport("user32.dll")]
-    private static extern int GetMessageW(
+    private static extern unsafe int GetMessageW(
         MSG* lpMsg,
         nint hWnd,
         uint wMsgFilterMin,
@@ -1804,12 +1804,12 @@ internal static unsafe class Program
         int bErase);
 
     [DllImport("user32.dll")]
-    private static extern bool ScreenToClient(
+    private static extern unsafe bool ScreenToClient(
         nint hWnd,
         POINT* lpPoint);
 
     [DllImport("user32.dll")]
-    private static extern bool ClientToScreen(
+    private static extern unsafe bool ClientToScreen(
         nint hWnd,
         POINT* lpPoint);
 
@@ -1822,22 +1822,22 @@ internal static unsafe class Program
         int lpCursorName);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern nint BeginPaint(
+    private static extern unsafe nint BeginPaint(
         nint hWnd,
         PAINTSTRUCT* lpPaint);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern bool EndPaint(
+    private static extern unsafe bool EndPaint(
         nint hWnd,
         PAINTSTRUCT* lpPaint);
 
     [DllImport("user32.dll")]
-    private static extern int GetClientRect(
+    private static extern unsafe int GetClientRect(
         nint hWnd,
         RECT* lpRect);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern int DrawTextW(
+    private static extern unsafe int DrawTextW(
         nint hDC,
         string lpchText,
         int cchText,
@@ -1960,7 +1960,7 @@ internal static unsafe class Program
     private static extern void CoUninitialize();
 
     [DllImport("ole32.dll")]
-    private static extern int CoCreateInstance(
+    private static extern unsafe int CoCreateInstance(
         Guid* rclsid,
         nint pUnkOuter,
         uint dwClsContext,
