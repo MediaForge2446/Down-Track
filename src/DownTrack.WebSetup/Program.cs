@@ -1167,10 +1167,7 @@ internal static class Program
 
         SetRoundCorners(_hwnd);
         CreateChildControls(_hwnd);
-        if (!_smokeTest)
-        {
-            RefreshControls();
-        }
+        RefreshControls();
         return true;
     }
 
@@ -1192,11 +1189,6 @@ internal static class Program
         _progressHwnd = CreateChild(parent, "msctls_progress32", "", 32, 174, 396, 10, ControlProgress, 0);
         _footerHwnd = CreateChild(parent, "STATIC", "DownTrack", 32, 268, 396, 22, ControlFooter, SsCenter);
         _retryHwnd = CreateChild(parent, "BUTTON", "Try again", 155, 224, 150, 40, ControlRetry, BsPushButton);
-
-        if (_smokeTest)
-        {
-            return _hwnd;
-        }
 
         SetWindowTheme(_languageHwnd, "Explorer", null);
         SetWindowTheme(_closeHwnd, "Explorer", null);
@@ -1359,43 +1351,6 @@ internal static class Program
                 }
 
                 return nint.Zero;
-            }
-
-            case 0x0138:
-            {
-                if (_smokeTest)
-                {
-                    return _mutedBrush;
-                }
-
-                var control = lParam;
-                if (control == _brandHwnd)
-                {
-                    SetTextColor(wParam, ToColorRef(0xFFFFFFFF));
-                    SetBkColor(wParam, ToColorRef(0xFF6659E8));
-                    return _accentBrush;
-                }
-
-                SetTextColor(
-                    wParam,
-                    control == _subtitleHwnd || control == _footerHwnd
-                        ? ToColorRef(0xFF7B8492)
-                        : ToColorRef(0xFF1D2430));
-
-                SetBkColor(wParam, ToColorRef(0xFFF8F9FC));
-                return _mutedBrush;
-            }
-
-            case 0x0135:
-            {
-                if (_smokeTest)
-                {
-                    return _mutedBrush;
-                }
-
-                SetTextColor(wParam, ToColorRef(0xFF1D2430));
-                SetBkColor(wParam, ToColorRef(0xFFF8F9FC));
-                return _mutedBrush;
             }
 
             case WmAppUpdate:
