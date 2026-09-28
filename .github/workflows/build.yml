@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -18,3 +19,11 @@ jobs:
         run: dotnet restore DownTrack.sln
       - name: Build
         run: dotnet build DownTrack.sln -c Release --no-restore --arch x64
+      - name: Publish
+        run: dotnet publish src/DownTrack.App/DownTrack.App.csproj -c Release -r win-x64 --self-contained false -o publish/DownTrack
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DownTrack-win-x64
+          path: publish/DownTrack
+          if-no-files-found: error
