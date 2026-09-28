@@ -1136,7 +1136,53 @@ internal static class Program
         }
 
         SetRoundCorners(_hwnd);
+
+        if (_smokeTest)
+        {
+            _smokeChild = CreateChild(
+                _hwnd,
+                "STATIC",
+                "DownTrack",
+                48,
+                42,
+                260,
+                32,
+                2001,
+                0);
+        }
+
         return true;
+    }
+
+    private static nint _smokeChild;
+
+    private static nint CreateChild(
+        nint parent,
+        string className,
+        string text,
+        int x,
+        int y,
+        int width,
+        int height,
+        int id,
+        uint extraStyle)
+    {
+        const uint WsChild = 0x40000000;
+        const uint WsVisible = 0x10000000;
+
+        return CreateWindowExW(
+            0,
+            className,
+            text,
+            WsChild | WsVisible | extraStyle,
+            x,
+            y,
+            width,
+            height,
+            parent,
+            (nint)id,
+            GetModuleHandleW(nint.Zero),
+            nint.Zero);
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
@@ -1218,7 +1264,11 @@ internal static class Program
                 PAINTSTRUCT ps;
                 var hdc = BeginPaint(hwnd, &ps);
 
-                DrawWindow(hdc);
+                if (!_smokeTest)
+                {
+                    DrawWindow(hdc);
+                }
+
                 EndPaint(hwnd, &ps);
                 return nint.Zero;
             }
