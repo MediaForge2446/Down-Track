@@ -106,7 +106,6 @@ internal static class Program
         }
 
         ShowWindow(_hwnd, SwShow);
-        UpdateWindow(_hwnd);
 
         if (_smokeTest)
         {
@@ -128,7 +127,7 @@ internal static class Program
     private static async Task SmokeExitAsync()
     {
         await Task.Delay(1200);
-        PostQuitMessage(0);
+        Environment.Exit(0);
     }
 
     private static async Task RunInstallerAsync()
