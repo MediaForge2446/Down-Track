@@ -1434,6 +1434,29 @@ internal static class Program
         }
     }
 
+    private static uint ToColorRef(uint argb)
+    {
+        var r = (argb >> 16) & 0xFF;
+        var g = (argb >> 8) & 0xFF;
+        var b = argb & 0xFF;
+        return (b << 16) | (g << 8) | r;
+    }
+
+    private static unsafe void SetRoundCorners(nint hwnd)
+    {
+        try
+        {
+            var preference = DwmRound;
+            DwmSetWindowAttribute(hwnd, DwmWindowCornerPreference, ref preference, sizeof(int));
+        }
+        catch
+        {
+        }
+
+        var region = CreateRoundRectRgn(0, 0, Width + 1, Height + 1, 24, 24);
+        SetWindowRgn(hwnd, region, true);
+    }
+
     private static void WriteText(string path, string content)
     {
         File.WriteAllText(
@@ -1713,6 +1736,11 @@ internal static class Program
 
     [DllImport("user32.dll")]
     private static extern uint SetTextColor(
+        nint hdc,
+        uint colorRef);
+
+    [DllImport("gdi32.dll")]
+    private static extern uint SetBkColor(
         nint hdc,
         uint colorRef);
 
