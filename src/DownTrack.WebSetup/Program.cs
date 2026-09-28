@@ -128,7 +128,7 @@ internal static class Program
     private static async Task SmokeExitAsync()
     {
         await Task.Delay(1200);
-        PostMessageW(_hwnd, WmClose, nint.Zero, nint.Zero);
+        PostQuitMessage(0);
     }
 
     private static async Task RunInstallerAsync()
@@ -1165,7 +1165,7 @@ internal static class Program
 
                 if (IsCloseButton(x, y))
                 {
-                    DestroyWindow(hwnd);
+                    PostQuitMessage(0);
                     return nint.Zero;
                 }
 
