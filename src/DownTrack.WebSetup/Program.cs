@@ -1226,12 +1226,6 @@ internal static class Program
                 PAINTSTRUCT ps;
                 var hdc = BeginPaint(hwnd, &ps);
 
-                if (_smokeTest)
-                {
-                    EndPaint(hwnd, &ps);
-                    return nint.Zero;
-                }
-
                 DrawWindow(hdc);
                 EndPaint(hwnd, &ps);
                 return nint.Zero;
@@ -1485,8 +1479,7 @@ internal static class Program
         bool wordBreak,
         bool center = false)
     {
-        using var font = NativeFont.Create(fontSize, bold);
-        var oldFont = SelectObject(hdc, font.Handle);
+        var oldFont = SelectObject(hdc, GetStockObject(17));
         SetTextColor(hdc, ToColorRef(color));
         SetBkMode(hdc, 1);
 
@@ -1907,6 +1900,9 @@ internal static class Program
     private static extern nint SelectObject(
         nint hdc,
         nint hObject);
+
+    [DllImport("gdi32.dll")]
+    private static extern nint GetStockObject(int fnObject);
 
     [DllImport("gdi32.dll")]
     private static extern int DeleteObject(nint hObject);
