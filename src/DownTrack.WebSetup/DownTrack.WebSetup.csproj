@@ -12,6 +12,8 @@
     <SelfContained>true</SelfContained>
     <OptimizationPreference>Size</OptimizationPreference>
     <StripSymbols>true</StripSymbols>
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>None</DebugType>
     <DebuggerSupport>false</DebuggerSupport>
     <EventSourceSupport>false</EventSourceSupport>
     <InvariantGlobalization>true</InvariantGlobalization>
