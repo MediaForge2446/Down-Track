@@ -5,6 +5,7 @@
  WindowStartupLocation="CenterScreen" Background="{StaticResource AppBg}">
   <Grid>
     <Grid.ColumnDefinitions><ColumnDefinition Width="290"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+
     <Border Grid.Column="0" Background="#F0F2F6" BorderBrush="#E0E4EB" BorderThickness="0,0,1,0">
       <Grid Margin="18,18,16,16">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -16,18 +17,20 @@
           <Button Content="{Binding AddMediaText}" Style="{StaticResource Primary}" Height="44" Margin="0,20,0,8" Click="AddMedia_Click"/>
           <Button Content="{Binding AddRootText}" Height="40" Click="AddRoot_Click"/>
         </StackPanel>
+
         <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,14,0,10" Padding="10">
           <StackPanel>
-            <TextBlock Text="Folders" Foreground="{StaticResource Muted}" FontSize="12" Margin="4,0,0,7"/>
-            <ListBox ItemsSource="{Binding RootFolders}" SelectedItem="{Binding SelectedRoot, Mode=TwoWay}" BorderThickness="0" Background="Transparent">
+            <TextBlock Text="{Binding FoldersText}" Foreground="{StaticResource Muted}" FontSize="12" Margin="4,0,0,7"/>
+            <ListBox ItemsSource="{Binding RootFolders}" SelectedItem="{Binding SelectedRoot, Mode=TwoWay}" SelectionChanged="RootList_SelectionChanged" BorderThickness="0" Background="Transparent">
               <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,2"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style></ListBox.ItemContainerStyle>
               <ListBox.ItemTemplate><DataTemplate><Border Padding="9,9" CornerRadius="8"><TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis"/></Border></DataTemplate></ListBox.ItemTemplate>
             </ListBox>
-            <TextBlock Text="Add a root folder to start building your library." TextWrapping="Wrap" Foreground="{StaticResource Muted}" Margin="5,6,5,3"/>
+            <TextBlock Text="{Binding RootEmptyHint}" TextWrapping="Wrap" Foreground="{StaticResource Muted}" Margin="5,6,5,3"/>
           </StackPanel>
         </Border>
+
         <StackPanel Grid.Row="2" VerticalAlignment="Top">
-          <TextBlock Text="Library tools" Foreground="{StaticResource Muted}" FontSize="12" Margin="5,6,0,7"/>
+          <TextBlock Text="{Binding LibraryToolsText}" Foreground="{StaticResource Muted}" FontSize="12" Margin="5,6,0,7"/>
           <Button Content="{Binding AddFolderText}" Style="{StaticResource Nav}" Click="AddFolder_Click"/>
           <Button Content="{Binding RenameText}" Style="{StaticResource Nav}" Click="Rename_Click"/>
           <Button Content="{Binding DeleteText}" Style="{StaticResource Nav}" Click="Delete_Click"/>
@@ -35,65 +38,131 @@
         <Button Grid.Row="3" Content="{Binding SettingsText}" Style="{StaticResource Nav}" Click="Settings_Click"/>
       </Grid>
     </Border>
+
     <Grid Grid.Column="1">
-      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-      <Grid Margin="24,18,24,10">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-        <StackPanel><TextBlock Text="{Binding Breadcrumb}" Foreground="{StaticResource Muted}" FontSize="12"/><TextBlock Text="{Binding LibraryTitle}" FontSize="30" FontWeight="SemiBold" Margin="0,4,0,0"/><TextBlock Text="{Binding LibrarySubtitle}" Foreground="{StaticResource Muted}" Margin="0,5,0,0"/></StackPanel>
-        <Button Grid.Column="1" Content="←" Width="42" Height="38" Margin="8,8,0,0" Click="Back_Click"/><Button Grid.Column="2" Content="→" Width="42" Height="38" Margin="6,8,0,0" Click="Forward_Click"/><Button Grid.Column="3" Content="{Binding HomeText}" Height="38" Margin="6,8,0,0" Click="Home_Click"/>
+      <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+
+      <!-- Library -->
+      <Grid Grid.Row="0" Visibility="{Binding LibraryVisibility}">
+        <StackPanel Margin="28,24,28,26">
+          <TextBlock Text="{Binding LibraryTitle}" FontSize="32" FontWeight="SemiBold"/>
+          <TextBlock Text="{Binding LibrarySubtitle}" Foreground="{StaticResource Muted}" Margin="0,6,0,24"/>
+          <Border Style="{StaticResource Card}" Padding="22">
+            <StackPanel>
+              <TextBlock Text="{Binding RootFoldersTitle}" FontSize="18" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding RootFoldersSubtitle}" Foreground="{StaticResource Muted}" Margin="0,5,0,16"/>
+              <ItemsControl ItemsSource="{Binding RootFolders}">
+                <ItemsControl.ItemTemplate><DataTemplate>
+                  <Border Background="#F7F8FB" BorderBrush="#E5E8EE" BorderThickness="1" CornerRadius="10" Padding="14" Margin="0,0,0,8">
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                      <StackPanel><TextBlock Text="{Binding}" FontWeight="SemiBold"/><TextBlock Text="{Binding}" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,3,0,0"/></StackPanel>
+                      <Button Grid.Column="1" Content="{Binding OpenText}" Tag="{Binding}" Padding="14,8" Click="RootCard_Click" Style="{StaticResource Primary}"/>
+                    </Grid>
+                  </Border>
+                </DataTemplate></ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <StackPanel Visibility="{Binding RootEmptyVisibility}" HorizontalAlignment="Center" Margin="0,28,0,20">
+                <Border Width="62" Height="62" CornerRadius="18" Background="#EAEAFF"><TextBlock Text="＋" FontSize="34" Foreground="{StaticResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                <TextBlock Text="{Binding EmptyLibraryText}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,0"/>
+                <TextBlock Text="{Binding EmptyLibraryHint}" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                <Button Content="{Binding AddRootText}" Style="{StaticResource Primary}" Margin="0,14,0,0" Click="AddRoot_Click"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
       </Grid>
-      <Border Grid.Row="1" Style="{StaticResource Card}" Margin="24,0,24,10" Padding="10">
-        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-          <TextBox Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" Height="38" Padding="12,0" VerticalContentAlignment="Center" Background="#F4F5F8" BorderThickness="0" FontSize="14"/>
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,0,0,0"><Button Content="All" Click="All_Click" Margin="0,0,4,0"/><Button Content="MP3" Click="Mp3_Click" Margin="0,0,4,0"/><Button Content="MP4" Click="Mp4_Click"/></StackPanel>
-          <Button Grid.Column="2" Content="↻" Width="44" Height="38" Margin="10,0,0,0" Click="Refresh_Click"/>
+
+      <!-- Explorer -->
+      <Grid Grid.Row="0" Visibility="{Binding ExplorerVisibility}">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Grid Margin="24,20,24,10">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="{Binding Breadcrumb}" Foreground="{StaticResource Muted}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+            <TextBlock Text="{Binding ExplorerTitle}" FontSize="28" FontWeight="SemiBold" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/>
+          </StackPanel>
+          <Button Grid.Column="1" Content="←" Width="42" Height="38" Margin="8,8,0,0" Click="Back_Click"/>
+          <Button Grid.Column="2" Content="→" Width="42" Height="38" Margin="6,8,0,0" Click="Forward_Click"/>
+          <Button Grid.Column="3" Content="{Binding HomeText}" Height="38" Margin="6,8,0,0" Click="Home_Click"/>
         </Grid>
-      </Border>
-      <Grid Grid.Row="2" Margin="24,0,24,10">
-        <Border Style="{StaticResource Card}">
-          <Grid>
-            <Grid.RowDefinitions><RowDefinition Height="44"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-            <Grid Background="#F7F8FB"><Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/><ColumnDefinition Width="180"/><ColumnDefinition Width="120"/><ColumnDefinition Width="120"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
-              <TextBlock Grid.Column="0" Text="#" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0"/><TextBlock Grid.Column="1" Text="Name" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><TextBlock Grid.Column="2" Text="Format / bitrate" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><TextBlock Grid.Column="3" Text="Size" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><TextBlock Grid.Column="4" Text="Duration" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><TextBlock Grid.Column="5" Text="Status" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
-            </Grid>
-            <ListView Grid.Row="1" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" BorderThickness="0" Background="Transparent">
-              <ListView.ItemTemplate><DataTemplate><Grid Margin="0,2" MinHeight="58">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/><ColumnDefinition Width="180"/><ColumnDefinition Width="120"/><ColumnDefinition Width="120"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
-                <Border Grid.Column="0" Width="36" Height="36" Background="#ECEEF5" CornerRadius="8" HorizontalAlignment="Center"><TextBlock Text="♫" FontSize="18" Foreground="#686BB0" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Path}" Foreground="{StaticResource Muted}" FontSize="11" TextTrimming="CharacterEllipsis"/></StackPanel>
-                <TextBlock Grid.Column="2" Text="{Binding FormatLabel}" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><TextBlock Grid.Column="3" Text="{Binding SizeLabel}" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><TextBlock Grid.Column="4" Text="{Binding Duration}" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
-                <Border Grid.Column="5" Background="{Binding StatusBrush}" Padding="9,5" CornerRadius="10" HorizontalAlignment="Left" VerticalAlignment="Center"><TextBlock Text="{Binding StatusLabel}" FontSize="12"/></Border>
-              </Grid></DataTemplate></ListView.ItemTemplate>
-            </ListView>
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"><TextBlock Text="♫" FontSize="42" Foreground="#B6BBC8" HorizontalAlignment="Center"/><TextBlock Text="{Binding EmptyText}" Foreground="{StaticResource Muted}" Margin="0,8,0,0"/></StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="24,0,24,10" Padding="10">
+          <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBox Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" Height="38" Padding="12,0" VerticalContentAlignment="Center" Background="#F4F5F8" BorderThickness="0" FontSize="14"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,0,0,0"><Button Content="{Binding AllText}" Click="All_Click" Margin="0,0,4,0"/><Button Content="MP3" Click="Mp3_Click" Margin="0,0,4,0"/><Button Content="MP4" Click="Mp4_Click"/></StackPanel>
+            <Button Grid.Column="2" Content="↻" Width="44" Height="38" Margin="10,0,0,0" Click="Refresh_Click"/>
           </Grid>
         </Border>
+
+        <Grid Grid.Row="2" Margin="24,0,24,12">
+          <Border Style="{StaticResource Card}">
+            <Grid>
+              <Grid.RowDefinitions><RowDefinition Height="44"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+              <Grid Background="#F7F8FB"><Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/><ColumnDefinition Width="180"/><ColumnDefinition Width="120"/><ColumnDefinition Width="120"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="#" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0"/><TextBlock Grid.Column="1" Text="{Binding NameHeader}" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><TextBlock Grid.Column="2" Text="{Binding FormatHeader}" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><TextBlock Grid.Column="3" Text="{Binding SizeHeader}" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><TextBlock Grid.Column="4" Text="{Binding DurationHeader}" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><TextBlock Grid.Column="5" Text="{Binding StatusHeader}" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+              </Grid>
+              <ListView Grid.Row="1" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" BorderThickness="0" Background="Transparent">
+                <ListView.ItemTemplate><DataTemplate><Grid Margin="0,2" MinHeight="58">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/><ColumnDefinition Width="180"/><ColumnDefinition Width="120"/><ColumnDefinition Width="120"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
+                  <Border Grid.Column="0" Width="36" Height="36" Background="#ECEEF5" CornerRadius="8" HorizontalAlignment="Center"><TextBlock Text="♫" FontSize="18" Foreground="#686BB0" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Path}" Foreground="{StaticResource Muted}" FontSize="11" TextTrimming="CharacterEllipsis"/></StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding FormatLabel}" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><TextBlock Grid.Column="3" Text="{Binding SizeLabel}" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><TextBlock Grid.Column="4" Text="{Binding Duration}" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                  <Border Grid.Column="5" Background="{Binding StatusBrush}" Padding="9,5" CornerRadius="10" HorizontalAlignment="Left" VerticalAlignment="Center"><TextBlock Text="{Binding StatusLabel}" FontSize="12"/></Border>
+                </Grid></DataTemplate></ListView.ItemTemplate>
+              </ListView>
+              <StackPanel Visibility="{Binding EmptyItemsVisibility}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"><TextBlock Text="♫" FontSize="42" Foreground="#B6BBC8" HorizontalAlignment="Center"/><TextBlock Text="{Binding EmptyText}" Foreground="{StaticResource Muted}" Margin="0,8,0,0"/></StackPanel>
+            </Grid>
+          </Border>
+        </Grid>
       </Grid>
-      <Border Grid.Row="3" Style="{StaticResource Card}" Background="#FFF8EA" BorderBrush="#F0D49F" Margin="24,0,24,18" Padding="16,12" Visibility="{Binding PendingVisibility}">
-        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding PendingText}" FontWeight="SemiBold"/><TextBlock Text="{Binding PendingSummary}" Foreground="#786B57" Margin="0,3,0,0"/></StackPanel><Button Grid.Column="1" Content="{Binding SaveText}" Style="{StaticResource Primary}" Padding="18,9" Click="Save_Click"/></Grid>
+
+      <!-- Settings -->
+      <Border Grid.Row="0" Background="{StaticResource AppBg}" Visibility="{Binding SettingsVisibility}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="28,20,28,30">
+            <TextBlock Text="{Binding SettingsText}" FontSize="30" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding SettingsSubtitle}" Foreground="{StaticResource Muted}" Margin="0,5,0,22"/>
+            <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,14"><StackPanel>
+              <TextBlock Text="{Binding LanguageText}" FontSize="17" FontWeight="SemiBold"/>
+              <ComboBox ItemsSource="{Binding Languages}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedLanguage}" Margin="0,10,0,0" Width="270" HorizontalAlignment="Left"/>
+              <TextBlock Text="{Binding AppearanceText}" FontSize="17" FontWeight="SemiBold" Margin="0,20,0,0"/>
+              <StackPanel Orientation="Horizontal" Margin="0,10,0,0"><RadioButton Content="{Binding SystemText}" GroupName="theme" IsChecked="{Binding SystemTheme}" Margin="0,0,20,0"/><RadioButton Content="{Binding LightText}" GroupName="theme" IsChecked="{Binding LightTheme}" Margin="0,0,20,0"/><RadioButton Content="{Binding DarkText}" GroupName="theme" IsChecked="{Binding DarkTheme}"/></StackPanel>
+            </StackPanel></Border>
+            <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,14"><StackPanel><TextBlock Text="{Binding MediaPreferencesText}" FontSize="17" FontWeight="SemiBold"/><Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="230"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding FormatText}" Foreground="{StaticResource Muted}"/><ComboBox ItemsSource="{Binding Formats}" SelectedItem="{Binding DefaultFormat}" Width="170" HorizontalAlignment="Left" Margin="0,6,0,0"/></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="{Binding QualityText}" Foreground="{StaticResource Muted}"/><ComboBox ItemsSource="{Binding Bitrates}" SelectedItem="{Binding DefaultBitrate}" Width="170" HorizontalAlignment="Left" Margin="0,6,0,0"/></StackPanel></Grid></StackPanel></Border>
+            <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,14"><StackPanel><TextBlock Text="{Binding EngineText}" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="{Binding EngineSummary}" Foreground="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"/><Button Content="{Binding CheckEngineText}" HorizontalAlignment="Left" Margin="0,14,0,0" Click="Engine_Click"/></StackPanel></Border>
+            <Border Style="{StaticResource Card}" Padding="22"><StackPanel><TextBlock Text="{Binding AboutText}" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="DownTrack 0.1.0 • Native Windows downloader" Foreground="{StaticResource Muted}" Margin="0,6,0,0"/><Button Content="{Binding CheckUpdatesText}" HorizontalAlignment="Left" Margin="0,14,0,0" Click="Updates_Click"/></StackPanel></Border>
+          </StackPanel>
+        </ScrollViewer>
       </Border>
-      <Border Grid.Row="0" Grid.RowSpan="4" Background="{StaticResource AppBg}" Visibility="{Binding SettingsVisibility}">
-        <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="28,20,28,30">
-          <TextBlock Text="{Binding SettingsText}" FontSize="30" FontWeight="SemiBold"/><TextBlock Text="{Binding SettingsSubtitle}" Foreground="{StaticResource Muted}" Margin="0,5,0,22"/>
-          <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,14"><StackPanel>
-            <TextBlock Text="{Binding LanguageText}" FontSize="17" FontWeight="SemiBold"/><ComboBox ItemsSource="{Binding Languages}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedLanguage}" Margin="0,10,0,0" Width="270" HorizontalAlignment="Left"/>
-            <TextBlock Text="{Binding AppearanceText}" FontSize="17" FontWeight="SemiBold" Margin="0,20,0,0"/><StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-              <RadioButton Content="{Binding SystemText}" GroupName="theme" IsChecked="{Binding SystemTheme}" Margin="0,0,20,0"/><RadioButton Content="{Binding LightText}" GroupName="theme" IsChecked="{Binding LightTheme}" Margin="0,0,20,0"/><RadioButton Content="{Binding DarkText}" GroupName="theme" IsChecked="{Binding DarkTheme}"/>
-            </StackPanel>
-          </StackPanel></Border>
-          <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,14"><StackPanel><TextBlock Text="{Binding MediaPreferencesText}" FontSize="17" FontWeight="SemiBold"/><Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="230"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding FormatText}" Foreground="{StaticResource Muted}"/><ComboBox ItemsSource="{Binding Formats}" SelectedItem="{Binding DefaultFormat}" Width="170" HorizontalAlignment="Left" Margin="0,6,0,0"/></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="{Binding QualityText}" Foreground="{StaticResource Muted}"/><ComboBox ItemsSource="{Binding Bitrates}" SelectedItem="{Binding DefaultBitrate}" Width="170" HorizontalAlignment="Left" Margin="0,6,0,0"/></StackPanel></Grid></StackPanel></Border>
-          <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,14"><StackPanel><TextBlock Text="{Binding EngineText}" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="{Binding EngineSummary}" Foreground="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"/><Button Content="{Binding CheckEngineText}" HorizontalAlignment="Left" Margin="0,14,0,0" Click="Engine_Click"/></StackPanel></Border>
-          <Border Style="{StaticResource Card}" Padding="22"><StackPanel><TextBlock Text="{Binding AboutText}" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="DownTrack 0.1.0 • Native Windows downloader" Foreground="{StaticResource Muted}" Margin="0,6,0,0"/><Button Content="{Binding CheckUpdatesText}" HorizontalAlignment="Left" Margin="0,14,0,0" Click="Updates_Click"/></StackPanel></Border>
-        </StackPanel></ScrollViewer>
+
+      <!-- Pending changes -->
+      <Border Grid.Row="1" Style="{StaticResource Card}" Background="#FFF8EA" BorderBrush="#F0D49F" Margin="24,0,24,18" Padding="14,11" Visibility="{Binding PendingVisibility}" Panel.ZIndex="10">
+        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <Expander Header="{Binding PendingText}" IsExpanded="False" Foreground="{StaticResource PendingText}">
+            <ScrollViewer MaxHeight="170" Margin="0,8,12,0"><ItemsControl ItemsSource="{Binding PendingChanges}">
+              <ItemsControl.ItemTemplate><DataTemplate><Grid Margin="0,5"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="130"/></Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"/><TextBlock Grid.Column="1" Text="{Binding Status}" HorizontalAlignment="Right" Foreground="{StaticResource Muted}" FontSize="12"/><ProgressBar Grid.Row="1" Grid.ColumnSpan="2" Height="5" Minimum="0" Maximum="100" Value="{Binding Progress}" Margin="0,5,0,0"/>
+              </Grid></DataTemplate></ItemsControl.ItemTemplate>
+            </ItemsControl></ScrollViewer>
+          </Expander>
+          <Button Grid.Column="1" Content="{Binding SaveText}" Style="{StaticResource Primary}" Padding="18,9" Click="Save_Click" VerticalAlignment="Center"/>
+        </Grid>
       </Border>
-      <Grid Grid.Row="0" Grid.RowSpan="4" Background="#660D1320" Visibility="{Binding DownloadVisibility}" Panel.ZIndex="50">
-        <Border Width="720" MaxHeight="680" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="18" Padding="24" VerticalAlignment="Center" HorizontalAlignment="Center">
+
+      <!-- Toast -->
+      <Border Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,36,32" Background="#20242B" CornerRadius="10" Padding="14,10" Visibility="{Binding ToastVisibility}" Panel.ZIndex="30">
+        <TextBlock Text="{Binding ToastText}" Foreground="White"/>
+      </Border>
+
+      <!-- Floating download modal -->
+      <Grid Grid.Row="0" Grid.RowSpan="2" Background="#660D1320" Visibility="{Binding DownloadVisibility}" Panel.ZIndex="50">
+        <Border Width="740" MaxHeight="700" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="18" Padding="24" VerticalAlignment="Center" HorizontalAlignment="Center">
           <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <StackPanel><TextBlock Text="{Binding AddMediaText}" FontSize="26" FontWeight="SemiBold"/><TextBlock Text="{Binding DownloadHint}" Foreground="{StaticResource Muted}" Margin="0,5,0,18"/></StackPanel>
             <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox x:Name="UrlBox" Height="48" FontSize="15" Padding="14,0" VerticalContentAlignment="Center" TextChanged="Url_Changed"/><Button Grid.Column="1" Content="{Binding PasteText}" Width="90" Margin="10,0,0,0" Click="Paste_Click"/></Grid>
-            <Border Grid.Row="2" Background="#F4F5FA" CornerRadius="14" Padding="16" Margin="0,16,0,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="155"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-              <Border Width="136" Height="136" Background="#E9EAF2" CornerRadius="12"><TextBlock Text="♫" FontSize="42" Foreground="#777AAA" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-              <StackPanel Grid.Column="1" Margin="18,0,0,0"><TextBlock Text="{Binding PreviewText}" Foreground="{StaticResource Muted}" FontSize="12"/><TextBox x:Name="NameBox" Text="New YouTube media" FontSize="18" FontWeight="SemiBold" Padding="10,8" Margin="0,8,0,10"/><TextBlock x:Name="PreviewMeta" Text="{Binding PreviewHint}" Foreground="{StaticResource Muted}" TextWrapping="Wrap"/><TextBlock Text="Format" FontWeight="SemiBold" Margin="0,18,0,7"/><StackPanel Orientation="Horizontal"><RadioButton x:Name="Mp3" Content="Audio · MP3" IsChecked="True" GroupName="fmt" Margin="0,0,18,0"/><RadioButton x:Name="Mp4" Content="Video · MP4" GroupName="fmt"/></StackPanel><TextBlock Text="Quality" FontWeight="SemiBold" Margin="0,13,0,7"/><ComboBox x:Name="Quality" Width="170" HorizontalAlignment="Left" SelectedIndex="0"><ComboBoxItem Content="128 kbps"/><ComboBoxItem Content="192 kbps"/><ComboBoxItem Content="256 kbps"/><ComboBoxItem Content="320 kbps"/></ComboBox></StackPanel>
+            <Border Grid.Row="2" Background="#F4F5FA" CornerRadius="14" Padding="16" Margin="0,16,0,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <Border Width="140" Height="140" Background="#E9EAF2" CornerRadius="12"><Image x:Name="PreviewImage" Stretch="UniformToFill"/></Border>
+              <StackPanel Grid.Column="1" Margin="18,0,0,0"><TextBlock Text="{Binding PreviewText}" Foreground="{StaticResource Muted}" FontSize="12"/><TextBox x:Name="NameBox" Text="New YouTube media" FontSize="18" FontWeight="SemiBold" Padding="10,8" Margin="0,8,0,10"/><TextBlock x:Name="PreviewMeta" Text="{Binding PreviewHint}" Foreground="{StaticResource Muted}" TextWrapping="Wrap"/><TextBlock Text="{Binding FormatText}" FontWeight="SemiBold" Margin="0,18,0,7"/><StackPanel Orientation="Horizontal"><RadioButton x:Name="Mp3" Content="Audio · MP3" IsChecked="True" GroupName="fmt" Margin="0,0,18,0"/><RadioButton x:Name="Mp4" Content="Video · MP4" GroupName="fmt"/></StackPanel><TextBlock Text="{Binding QualityText}" FontWeight="SemiBold" Margin="0,13,0,7"/><ComboBox x:Name="Quality" Width="170" HorizontalAlignment="Left" SelectedIndex="0"><ComboBoxItem Content="128 kbps"/><ComboBoxItem Content="192 kbps"/><ComboBoxItem Content="256 kbps"/><ComboBoxItem Content="320 kbps"/></ComboBox></StackPanel>
             </Grid></Border>
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0"><Button Content="{Binding CancelText}" Width="110" Click="CancelDownload_Click"/><Button Content="{Binding AddToLibraryText}" Width="155" Margin="10,0,0,0" Style="{StaticResource Primary}" Click="AddToLibrary_Click"/></StackPanel>
           </Grid>
