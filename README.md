@@ -34,6 +34,7 @@ The public bootstrapper is DownTrack-WebSetup.exe.
 Stable release asset URLs:
 
 https://github.com/MediaForge2446/Down-Track/releases/latest/download/DownTrack-WebSetup.exe
+https://github.com/MediaForge2446/Down-Track/releases/latest/download/DownTrack-WebSetup.exe.sha256
 https://github.com/MediaForge2446/Down-Track/releases/latest/download/DownTrack-win-x64.zip
 https://github.com/MediaForge2446/Down-Track/releases/latest/download/DownTrack-win-x64.zip.sha256
 
@@ -51,7 +52,7 @@ Open DownTrack.sln in Visual Studio 2022+ or use the GitHub Actions workflows.
 
 The build workflow restores .NET 8, builds the solution, publishes DownTrack, publishes the Native AOT WebSetup, runs smoke tests, and uploads separate artifacts for the app, installer, and release preview.
 
-The release workflow is tag-based (v1.2.3). It packages the framework-dependent DownTrack payload, creates the SHA-256 sidecar and version asset, publishes DownTrack-WebSetup.exe, creates or updates the GitHub release, and performs an end-to-end installer install on Windows.
+The release workflow is tag-based (v1.2.3). It packages the framework-dependent DownTrack payload, creates SHA-256 sidecars and the version asset, publishes DownTrack-WebSetup.exe, creates or updates the GitHub release, and performs an end-to-end installer install on Windows.
 
 ## Runtime
 
