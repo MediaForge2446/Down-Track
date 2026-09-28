@@ -608,7 +608,7 @@ internal static class Program
                 nint.Zero,
                 ClsContextInprocServer,
                 iid,
-                out shellLink);
+                &shellLink);
             Marshal.ThrowExceptionForHR(hr);
 
             try
@@ -1565,7 +1565,7 @@ internal static class Program
         }
     }
 
-    private static void SetRoundCorners(nint hwnd)
+    private static unsafe void SetRoundCorners(nint hwnd)
     {
         try
         {
