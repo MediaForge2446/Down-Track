@@ -28,7 +28,7 @@ public sealed class MainWindow : Window, INotifyPropertyChanged
     readonly List<string> history=[];int historyIndex=-1;bool navigating;int toastVersion;CancellationTokenSource? inspectCts;
     string language="auto",theme="System",filter="All",search="",defaultFormat="MP3";int defaultBitrate=128;string? selectedRoot;MediaItem? selectedItem;string page="Library";string toastText="";bool downloadVisible;bool previewPlaylist;
 
-    public MainWindow(){InitializeComponent();DataContext=this;Loaded+=async(_,_)=>{WindowState=WindowState.Maximized;ApplyMica();await EnsureMediaEngineAsync();await LoadStateAsync();};}
+    public MainWindow(){InitializeComponent();DataContext=this;Loaded+=async(_,_)=>{WindowState=WindowState.Maximized;ApplyMica();await LoadTranslationsAsync();await EnsureMediaEngineAsync();await LoadStateAsync();};}
 
     public ObservableCollection<string> RootFolders=>rootFolders;public ObservableCollection<MediaItem> Items=>items;public ObservableCollection<PendingChange> PendingChanges=>pending;
     public string? SelectedRoot{get=>selectedRoot;set{if(value==selectedRoot)return;selectedRoot=value;Breadcrumb=value??"Library";if(!navigating&&value!=null){if(historyIndex<history.Count-1)history.RemoveRange(historyIndex+1,history.Count-historyIndex-1);history.Add(value);historyIndex=history.Count-1;}OnPropertyChanged();OnPropertyChanged(nameof(Breadcrumb));RefreshItems();}}
@@ -52,6 +52,23 @@ public sealed class MainWindow : Window, INotifyPropertyChanged
     public string EngineSetupText=>engineSetupText; public double EngineSetupProgress=>engineSetupProgress;
     public string EngineSetupDetail=>engineSetupProgress>=1?"Ready":"Preparing media tools…";
     public event PropertyChangedEventHandler? PropertyChanged;void OnPropertyChanged([CallerMemberName]string? n=null)=>PropertyChanged?.Invoke(this,new PropertyChangedEventArgs(n));
+
+    async Task LoadTranslationsAsync()
+    {
+        try
+        {
+            var folder=Path.Combine(AppContext.BaseDirectory,"Locales");
+            if(!Directory.Exists(folder)) return;
+            foreach(var file in Directory.EnumerateFiles(folder,"*.json"))
+            {
+                var code=Path.GetFileNameWithoutExtension(file);
+                await using var stream=File.OpenRead(file);
+                var dict=await JsonSerializer.DeserializeAsync<Dictionary<string,string>>(stream);
+                if(dict!=null) t[code]=dict;
+            }
+        }
+        catch { }
+    }
 
     async Task LoadStateAsync(){try{if(File.Exists(stateFile)){await using var s=File.OpenRead(stateFile);var st=await JsonSerializer.DeserializeAsync<StoredState>(s);if(st!=null){language=st.Language??"auto";theme=st.Theme??"System";defaultFormat=st.DefaultFormat??"MP3";defaultBitrate=st.DefaultBitrate==0?128:st.DefaultBitrate;foreach(var r in st.RootFolders??[])rootFolders.Add(r);foreach(var p in st.Pending??[])pending.Add(p);}}}catch{}ApplyLanguage();ApplyTheme(theme);if(rootFolders.Count>0){navigating=true;SelectedRoot=rootFolders[0];navigating=false;history.Clear();history.Add(SelectedRoot!);historyIndex=0;Page="Library";}RefreshItems();}
     async Task SaveStateAsync(){try{Directory.CreateDirectory(Path.GetDirectoryName(stateFile)!);var st=new StoredState{Language=language,Theme=theme,DefaultFormat=defaultFormat,DefaultBitrate=defaultBitrate,RootFolders=rootFolders.ToList(),Pending=pending.ToList()};var tmp=stateFile+".tmp";await using(var s=File.Create(tmp))await JsonSerializer.SerializeAsync(s,st,new JsonSerializerOptions{WriteIndented=true});File.Move(tmp,stateFile,true);}catch{}}
