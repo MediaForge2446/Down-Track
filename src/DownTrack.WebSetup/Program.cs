@@ -1167,7 +1167,10 @@ internal static class Program
 
         SetRoundCorners(_hwnd);
         CreateChildControls(_hwnd);
-        RefreshControls();
+        if (!_smokeTest)
+        {
+            RefreshControls();
+        }
         return true;
     }
 
@@ -1189,6 +1192,11 @@ internal static class Program
         _progressHwnd = CreateChild(parent, "msctls_progress32", "", 32, 174, 396, 10, ControlProgress, 0);
         _footerHwnd = CreateChild(parent, "STATIC", "DownTrack", 32, 268, 396, 22, ControlFooter, SsCenter);
         _retryHwnd = CreateChild(parent, "BUTTON", "Try again", 155, 224, 150, 40, ControlRetry, BsPushButton);
+
+        if (_smokeTest)
+        {
+            return _hwnd;
+        }
 
         SetWindowTheme(_languageHwnd, "Explorer", null);
         SetWindowTheme(_closeHwnd, "Explorer", null);
