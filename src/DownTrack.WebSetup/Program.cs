@@ -105,7 +105,10 @@ internal static class Program
             return;
         }
 
-        ShowWindow(_hwnd, SwShow);
+        if (!_smokeTest)
+        {
+            ShowWindow(_hwnd, SwShow);
+        }
 
         if (_smokeTest)
         {
