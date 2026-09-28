@@ -68,6 +68,7 @@ jobs:
           $exe = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
           if (-not (Test-Path $exe)) { throw "WebSetup executable not found: $exe" }
           $files = Get-ChildItem 'publish/WebSetup' -File
+          $files | ForEach-Object { Write-Host "WebSetup output: $($_.Name) ($($_.Length) bytes)" }
           if ($files.Count -ne 1 -or $files[0].Name -ne 'DownTrack-WebSetup.exe') {
             throw "WebSetup publish is not a single-file payload."
           }
