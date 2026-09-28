@@ -1924,9 +1924,6 @@ internal static class Program
     [DllImport("user32.dll")]
     private static extern nint CreatePopupMenu();
 
-    [DllImport("gdi32.dll")]
-    private static extern nint GetStockObject(int fnObject);
-
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int SetWindowTextW(nint hWnd, string text);
 
