@@ -1363,6 +1363,11 @@ internal static class Program
 
             case 0x0138:
             {
+                if (_smokeTest)
+                {
+                    return _mutedBrush;
+                }
+
                 var control = lParam;
                 if (control == _brandHwnd)
                 {
@@ -1383,6 +1388,11 @@ internal static class Program
 
             case 0x0135:
             {
+                if (_smokeTest)
+                {
+                    return _mutedBrush;
+                }
+
                 SetTextColor(wParam, ToColorRef(0xFF1D2430));
                 SetBkColor(wParam, ToColorRef(0xFFF8F9FC));
                 return _mutedBrush;
