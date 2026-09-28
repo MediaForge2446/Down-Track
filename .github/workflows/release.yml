@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - 'bootstrap/release-*'
 
 permissions:
   contents: write
@@ -27,16 +25,7 @@ jobs:
       - name: Resolve release version
         shell: pwsh
         run: |
-          if ($env:GITHUB_REF_TYPE -eq 'tag') {
-            $tag = $env:GITHUB_REF_NAME
-          }
-          elseif ($env:GITHUB_REF_NAME -match '^bootstrap/release-(.+)$') {
-            $tag = "v$($Matches[1])"
-          }
-          else {
-            throw "Unsupported release ref: $env:GITHUB_REF_NAME"
-          }
-
+          $tag = $env:GITHUB_REF_NAME
           $version = $tag.TrimStart('v')
           if ($version -notmatch '^\d+\.\d+\.\d+([\-+].*)?$') {
             throw "Release version must look like v1.2.3 or v1.2.3-beta.1."
