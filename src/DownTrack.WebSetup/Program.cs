@@ -602,12 +602,12 @@ internal static class Program
 
             Guid* clsid = &clsidShellLink;
             Guid* iid = &iidShellLink;
-            var hr = CoCreateInstance(
+                var hr = CoCreateInstance(
                 clsid,
                 nint.Zero,
                 ClsContextInprocServer,
                 iid,
-                &shellLink);
+                out shellLink);
             Marshal.ThrowExceptionForHR(hr);
 
             try
@@ -805,22 +805,17 @@ internal static class Program
         _ = RunInstallerAsync();
     }
 
-    private static unsafe string DetectLanguage()
+    private static string DetectLanguage()
     {
-        Span<char> buffer = stackalloc char[85];
-        int length;
-
-        fixed (char* localePtr = buffer)
-        {
-            length = GetUserDefaultLocaleName(localePtr, buffer.Length);
-        }
+        var buffer = new StringBuilder(85);
+        var length = GetUserDefaultLocaleName(buffer, buffer.Capacity);
 
         if (length <= 0)
         {
             return "en";
         }
 
-        var locale = new string(buffer[..length]).ToLowerInvariant();
+        var locale = buffer.ToString().ToLowerInvariant();
         if (locale.StartsWith("zh-tw", StringComparison.Ordinal))
         {
             return "zh-TW";
@@ -1502,10 +1497,7 @@ internal static class Program
             drawX = x + Math.Max(0, (width - estimatedWidth) / 2);
         }
 
-        fixed (char* textPtr = text)
-        {
-            TextOutW(hdc, drawX, y, textPtr, text.Length);
-        }
+        TextOutW(hdc, drawX, y, text, text.Length);
 
         SelectObject(hdc, oldFont);
     }
@@ -1540,10 +1532,7 @@ internal static class Program
             for (var i = 0; i < Languages.Length; i++)
             {
                 var item = Languages[i];
-                fixed (char* itemText = item.Name)
-                {
-                    AppendMenuW(menu, MFString, (nuint)(1000 + i), itemText);
-                }
+                AppendMenuW(menu, MFString, (nuint)(1000 + i), item.Name);
             }
 
             POINT point = new() { X = 324, Y = 64 };
@@ -1571,7 +1560,7 @@ internal static class Program
             DwmSetWindowAttribute(
                 hwnd,
                 DwmWindowCornerPreference,
-                &preference,
+                ref preference,
                 sizeof(int));
         }
         catch
@@ -1762,7 +1751,7 @@ internal static class Program
     private static extern unsafe nint CreateWindowExW(
         uint dwExStyle,
         char* lpClassName,
-        char* lpWindowName,
+        string lpWindowName,
         uint dwStyle,
         int X,
         int Y,
@@ -1852,11 +1841,11 @@ internal static class Program
         RECT* lpRect);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern unsafe int TextOutW(
+    private static extern int TextOutW(
         nint hDC,
         int x,
         int y,
-        char* lpString,
+        string lpString,
         int c);
 
     [DllImport("user32.dll")]
@@ -1932,21 +1921,21 @@ internal static class Program
         bool bRedraw);
 
     [DllImport("dwmapi.dll")]
-    private static extern unsafe int DwmSetWindowAttribute(
+    private static extern int DwmSetWindowAttribute(
         nint hwnd,
         int attribute,
-        int* value,
+        ref int value,
         int size);
 
     [DllImport("user32.dll")]
     private static extern nint CreatePopupMenu();
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern unsafe int AppendMenuW(
+    private static extern int AppendMenuW(
         nint hMenu,
         uint uFlags,
         nuint uIdNewItem,
-        char* lpNewItem);
+        string lpNewItem);
 
     [DllImport("user32.dll")]
     private static extern int DestroyMenu(nint hMenu);
@@ -1965,8 +1954,8 @@ internal static class Program
     private static extern nint GetModuleHandleW(nint lpModuleName);
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
-    private static extern unsafe int GetUserDefaultLocaleName(
-        char* lpLocaleName,
+    private static extern int GetUserDefaultLocaleName(
+        StringBuilder lpLocaleName,
         int cchLocaleName);
 
     [DllImport("ole32.dll")]
@@ -1983,7 +1972,7 @@ internal static class Program
         nint pUnkOuter,
         uint dwClsContext,
         Guid* riid,
-        nint* ppv);
+        out nint ppv);
 
     [DllImport("user32.dll")]
     private static extern unsafe int FillRect(
