@@ -16,4 +16,7 @@
   <ItemGroup>
     <PackageReference Include="WPF-UI" Version="4.3.0" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="Locales\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
