@@ -1247,6 +1247,11 @@ internal static class Program
         using var background = NativeBrush.FromRgb(0xFFF8F9FC);
         FillRect(hdc, &rect, background.Handle);
 
+        if (_smokeTest)
+        {
+            return;
+        }
+
         DrawHeader(hdc);
 
         string status;
