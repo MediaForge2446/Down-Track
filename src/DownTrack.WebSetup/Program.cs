@@ -1115,22 +1115,19 @@ internal static class Program
             var x = (GetSystemMetrics(SmCxScreen) - Width) / 2;
             var y = (GetSystemMetrics(SmCyScreen) - Height) / 2;
 
-            fixed (char* titlePtr = "DownTrack Web Setup")
-            {
-                _hwnd = CreateWindowExW(
-                    WsExAppWindow,
-                    classNamePtr,
-                    titlePtr,
-                    WsPopup,
+            _hwnd = CreateWindowExW(
+                WsExAppWindow,
+                classNamePtr,
+                "DownTrack Web Setup",
+                WsPopup,
                 x,
                 y,
                 Width,
                 Height,
-                    nint.Zero,
-                    nint.Zero,
-                    hInstance,
-                    nint.Zero);
-            }
+                nint.Zero,
+                nint.Zero,
+                hInstance,
+                nint.Zero);
         }
 
         if (_hwnd == nint.Zero)
@@ -1246,10 +1243,7 @@ internal static class Program
         {
             DrawRoundedFill(hdc, 32, 22, 42, 42, 12, 0xFF6659E8);
 
-            fixed (char* textPtr = "DownTrack")
-            {
-                TextOutW(hdc, 88, 24, textPtr, 9);
-            }
+            TextOutW(hdc, 88, 24, "DownTrack", 9);
 
             return;
         }
