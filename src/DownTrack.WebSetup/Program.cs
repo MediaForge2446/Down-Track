@@ -1117,7 +1117,7 @@ internal static class Program
 
             _hwnd = CreateWindowExW(
                 WsExAppWindow,
-                classNamePtr,
+                className,
                 "DownTrack Web Setup",
                 WsPopup,
                 x,
@@ -1742,9 +1742,9 @@ internal static class Program
     private static extern unsafe ushort RegisterClassW(WNDCLASSW* lpWndClass);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern unsafe nint CreateWindowExW(
+    private static extern nint CreateWindowExW(
         uint dwExStyle,
-        char* lpClassName,
+        string lpClassName,
         string lpWindowName,
         uint dwStyle,
         int X,
@@ -1923,6 +1923,21 @@ internal static class Program
 
     [DllImport("user32.dll")]
     private static extern nint CreatePopupMenu();
+
+    [DllImport("gdi32.dll")]
+    private static extern nint GetStockObject(int fnObject);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int SetWindowTextW(nint hWnd, string text);
+
+    [DllImport("user32.dll")]
+    private static extern nint SendMessageW(nint hWnd, uint msg, nint wParam, nint lParam);
+
+    [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+    private static extern int SetWindowTheme(nint hwnd, string? subAppName, string? subIdList);
+
+    [DllImport("user32.dll")]
+    private static extern nint GetSysColorBrush(int nIndex);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int AppendMenuW(
