@@ -105,10 +105,7 @@ internal static class Program
             return;
         }
 
-        if (!_smokeTest)
-        {
-            ShowWindow(_hwnd, SwShow);
-        }
+        ShowWindow(_hwnd, SwShow);
 
         if (_smokeTest)
         {
@@ -1228,6 +1225,13 @@ internal static class Program
             {
                 PAINTSTRUCT ps;
                 var hdc = BeginPaint(hwnd, &ps);
+
+                if (_smokeTest)
+                {
+                    EndPaint(hwnd, &ps);
+                    return nint.Zero;
+                }
+
                 DrawWindow(hdc);
                 EndPaint(hwnd, &ps);
                 return nint.Zero;
