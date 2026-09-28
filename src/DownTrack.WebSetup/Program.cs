@@ -1804,27 +1804,27 @@ internal static class Program
         nint lParam);
 
     [DllImport("user32.dll")]
-    private static extern bool DestroyWindow(nint hWnd);
+    private static extern int DestroyWindow(nint hWnd);
 
     [DllImport("user32.dll")]
-    private static extern bool ShowWindow(nint hWnd, int nCmdShow);
+    private static extern int ShowWindow(nint hWnd, int nCmdShow);
 
     [DllImport("user32.dll")]
-    private static extern bool UpdateWindow(nint hWnd);
+    private static extern int UpdateWindow(nint hWnd);
 
     [DllImport("user32.dll")]
-    private static extern bool InvalidateRect(
+    private static extern int InvalidateRect(
         nint hWnd,
         nint lpRect,
         int bErase);
 
     [DllImport("user32.dll")]
-    private static extern unsafe bool ScreenToClient(
+    private static extern unsafe int ScreenToClient(
         nint hWnd,
         POINT* lpPoint);
 
     [DllImport("user32.dll")]
-    private static extern unsafe bool ClientToScreen(
+    private static extern unsafe int ClientToScreen(
         nint hWnd,
         POINT* lpPoint);
 
@@ -1842,7 +1842,7 @@ internal static class Program
         PAINTSTRUCT* lpPaint);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern unsafe bool EndPaint(
+    private static extern unsafe int EndPaint(
         nint hWnd,
         PAINTSTRUCT* lpPaint);
 
@@ -1852,7 +1852,7 @@ internal static class Program
         RECT* lpRect);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern unsafe bool TextOutW(
+    private static extern unsafe int TextOutW(
         nint hDC,
         int x,
         int y,
@@ -1907,7 +1907,7 @@ internal static class Program
     private static extern int DeleteObject(nint hObject);
 
     [DllImport("gdi32.dll")]
-    private static extern bool RoundRect(
+    private static extern int RoundRect(
         nint hdc,
         int left,
         int top,
@@ -1942,14 +1942,14 @@ internal static class Program
     private static extern nint CreatePopupMenu();
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern unsafe bool AppendMenuW(
+    private static extern unsafe int AppendMenuW(
         nint hMenu,
         uint uFlags,
         nuint uIdNewItem,
         char* lpNewItem);
 
     [DllImport("user32.dll")]
-    private static extern bool DestroyMenu(nint hMenu);
+    private static extern int DestroyMenu(nint hMenu);
 
     [DllImport("user32.dll")]
     private static extern uint TrackPopupMenu(
