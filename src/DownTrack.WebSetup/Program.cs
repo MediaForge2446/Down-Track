@@ -1091,6 +1091,30 @@ internal static class Program
         string GenericError,
         string Retry);
 
+    private const int ControlBrand = 2001;
+    private const int ControlTitle = 2002;
+    private const int ControlSubtitle = 2003;
+    private const int ControlLanguage = 2004;
+    private const int ControlClose = 2005;
+    private const int ControlStatus = 2006;
+    private const int ControlProgress = 2007;
+    private const int ControlFooter = 2008;
+    private const int ControlRetry = 2009;
+
+    private static nint _brandHwnd;
+    private static nint _titleHwnd;
+    private static nint _subtitleHwnd;
+    private static nint _languageHwnd;
+    private static nint _closeHwnd;
+    private static nint _statusHwnd;
+    private static nint _progressHwnd;
+    private static nint _footerHwnd;
+    private static nint _retryHwnd;
+    private static nint _backgroundBrush;
+    private static nint _accentBrush;
+    private static nint _mutedBrush;
+    private static nint _uiFont;
+
     private static unsafe bool CreateMainWindow()
     {
         var hInstance = GetModuleHandleW(nint.Zero);
@@ -1104,6 +1128,7 @@ internal static class Program
                 lpfnWndProc = &WindowProc,
                 hInstance = hInstance,
                 hCursor = LoadCursorW(nint.Zero, new nint(32512)),
+                hbrBackground = GetSysColorBrush(5),
                 lpszClassName = classNamePtr
             };
 
@@ -1135,26 +1160,55 @@ internal static class Program
             return false;
         }
 
+        _backgroundBrush = CreateSolidBrush(ToColorRef(0xFFF8F9FC));
+        _accentBrush = CreateSolidBrush(ToColorRef(0xFF6659E8));
+        _mutedBrush = CreateSolidBrush(ToColorRef(0xFFF8F9FC));
+        _uiFont = GetStockObject(17);
+
         SetRoundCorners(_hwnd);
-
-        if (_smokeTest)
-        {
-            _smokeChild = CreateChild(
-                _hwnd,
-                "STATIC",
-                "DownTrack",
-                48,
-                42,
-                260,
-                32,
-                2001,
-                0);
-        }
-
+        CreateChildControls(_hwnd);
+        RefreshControls();
         return true;
     }
 
-    private static nint _smokeChild;
+    private static nint CreateChildControls(nint parent)
+    {
+        const uint WsChild = 0x40000000;
+        const uint WsVisible = 0x10000000;
+        const uint SsCenter = 0x00000001;
+        const uint BsPushButton = 0x00000000;
+
+        _brandHwnd = CreateChild(parent, "STATIC", "D", 34, 24, 46, 42, ControlBrand, SsCenter);
+        _titleHwnd = CreateChild(parent, "STATIC", "DownTrack", 92, 22, 190, 26, ControlTitle, 0);
+        _subtitleHwnd = CreateChild(parent, "STATIC", "Web Setup", 94, 47, 170, 18, ControlSubtitle, 0);
+
+        _languageHwnd = CreateChild(parent, "BUTTON", "EN", 320, 22, 66, 32, ControlLanguage, BsPushButton);
+        _closeHwnd = CreateChild(parent, "BUTTON", "×", 398, 18, 40, 36, ControlClose, BsPushButton);
+
+        _statusHwnd = CreateChild(parent, "STATIC", "", 32, 112, 396, 46, ControlStatus, SsCenter);
+        _progressHwnd = CreateChild(parent, "msctls_progress32", "", 32, 174, 396, 10, ControlProgress, 0);
+        _footerHwnd = CreateChild(parent, "STATIC", "DownTrack", 32, 268, 396, 22, ControlFooter, SsCenter);
+        _retryHwnd = CreateChild(parent, "BUTTON", "Try again", 155, 224, 150, 40, ControlRetry, BsPushButton);
+
+        SetWindowTheme(_languageHwnd, "Explorer", null);
+        SetWindowTheme(_closeHwnd, "Explorer", null);
+        SetWindowTheme(_retryHwnd, "Explorer", null);
+        SetWindowTheme(_progressHwnd, "Explorer", null);
+
+        ApplyFont(_brandHwnd);
+        ApplyFont(_titleHwnd);
+        ApplyFont(_subtitleHwnd);
+        ApplyFont(_languageHwnd);
+        ApplyFont(_closeHwnd);
+        ApplyFont(_statusHwnd);
+        ApplyFont(_progressHwnd);
+        ApplyFont(_footerHwnd);
+        ApplyFont(_retryHwnd);
+
+        SendMessageW(_progressHwnd, 0x0401, 0, 100);
+        ShowWindow(_retryHwnd, 0);
+        return _hwnd;
+    }
 
     private static nint CreateChild(
         nint parent,
@@ -1165,7 +1219,7 @@ internal static class Program
         int width,
         int height,
         int id,
-        uint extraStyle)
+        uint style)
     {
         const uint WsChild = 0x40000000;
         const uint WsVisible = 0x10000000;
@@ -1174,7 +1228,7 @@ internal static class Program
             0,
             className,
             text,
-            WsChild | WsVisible | extraStyle,
+            WsChild | WsVisible | style,
             x,
             y,
             width,
@@ -1183,6 +1237,62 @@ internal static class Program
             (nint)id,
             GetModuleHandleW(nint.Zero),
             nint.Zero);
+    }
+
+    private static void ApplyFont(nint hwnd)
+    {
+        if (hwnd != nint.Zero)
+        {
+            SendMessageW(hwnd, 0x0030, _uiFont, 1);
+        }
+    }
+
+    private static void RefreshControls()
+    {
+        if (_statusHwnd == nint.Zero)
+        {
+            return;
+        }
+
+        string status;
+        string footer;
+        string language;
+        bool failed;
+        double progress;
+
+        lock (UiGate)
+        {
+            failed = _failed;
+            progress = _progress;
+            language = _language
+                .ToUpperInvariant()
+                .Replace("-CN", "", StringComparison.Ordinal)
+                .Replace("-TW", "", StringComparison.Ordinal);
+
+            status = failed
+                ? _errorMessage
+                : string.IsNullOrEmpty(_statusKey)
+                    ? GetText("getting_ready")
+                    : GetText(_statusKey);
+
+            footer = failed
+                ? GetText("retry")
+                : "DownTrack";
+        }
+
+        SetWindowTextW(_statusHwnd, status);
+        SetWindowTextW(_languageHwnd, language);
+        SetWindowTextW(_footerHwnd, footer);
+
+        SendMessageW(
+            _progressHwnd,
+            0x0402,
+            (nint)Math.Clamp((int)Math.Round(progress), 0, 100),
+            0);
+
+        ShowWindow(_retryHwnd, failed ? 5 : 0);
+
+        InvalidateRect(_hwnd, nint.Zero, 1);
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
@@ -1197,43 +1307,36 @@ internal static class Program
                 POINT point = new() { X = x, Y = y };
                 ScreenToClient(hwnd, &point);
 
-                if (IsCloseButton(point.X, point.Y) || IsLanguageButton(point.X, point.Y))
+                if (point.Y <= 72)
                 {
-                    return HtClient;
+                    return HtCaption;
                 }
 
-                return point.Y <= 52 ? HtCaption : HtClient;
-            }
-
-            case WmLButtonDown:
-            {
-                var x = (short)(long)lParam;
-                var y = (short)((long)lParam >> 16);
-
-                if (IsCloseButton(x, y))
-                {
-                    PostQuitMessage(0);
-                    return nint.Zero;
-                }
-
-                if (IsLanguageButton(x, y))
-                {
-                    ShowLanguageMenu(hwnd);
-                    return nint.Zero;
-                }
-
-                if (_failed && _retryVisible && IsRetryButton(x, y))
-                {
-                    Retry();
-                    return nint.Zero;
-                }
-
-                break;
+                return HtClient;
             }
 
             case WmCommand:
             {
                 var id = (ushort)((long)wParam & 0xFFFF);
+
+                if (id == ControlClose)
+                {
+                    DestroyWindow(hwnd);
+                    return nint.Zero;
+                }
+
+                if (id == ControlLanguage)
+                {
+                    ShowLanguageMenu(hwnd);
+                    return nint.Zero;
+                }
+
+                if (id == ControlRetry)
+                {
+                    Retry();
+                    return nint.Zero;
+                }
+
                 if (id is >= 1000 and < 2000)
                 {
                     var index = id - 1000;
@@ -1243,32 +1346,48 @@ internal static class Program
                             ? DetectLanguage()
                             : Languages[index].Code;
 
-                        PostMessageW(hwnd, WmAppUpdate, nint.Zero, nint.Zero);
-
-                        if (_failed)
-                        {
-                            SetFailure(_errorMessage, _retryVisible);
-                        }
+                        RefreshControls();
                     }
                 }
 
-                break;
+                return nint.Zero;
+            }
+
+            case 0x0138:
+            {
+                var control = lParam;
+                if (control == _brandHwnd)
+                {
+                    SetTextColor(wParam, ToColorRef(0xFFFFFFFF));
+                    SetBkColor(wParam, ToColorRef(0xFF6659E8));
+                    return _accentBrush;
+                }
+
+                SetTextColor(
+                    wParam,
+                    control == _subtitleHwnd || control == _footerHwnd
+                        ? ToColorRef(0xFF7B8492)
+                        : ToColorRef(0xFF1D2430));
+
+                SetBkColor(wParam, ToColorRef(0xFFF8F9FC));
+                return _mutedBrush;
+            }
+
+            case 0x0135:
+            {
+                SetTextColor(wParam, ToColorRef(0xFF1D2430));
+                SetBkColor(wParam, ToColorRef(0xFFF8F9FC));
+                return _mutedBrush;
             }
 
             case WmAppUpdate:
-                InvalidateRect(hwnd, nint.Zero, 0);
+                RefreshControls();
                 return nint.Zero;
 
             case WmPaint:
             {
                 PAINTSTRUCT ps;
                 var hdc = BeginPaint(hwnd, &ps);
-
-                if (!_smokeTest)
-                {
-                    DrawWindow(hdc);
-                }
-
                 EndPaint(hwnd, &ps);
                 return nint.Zero;
             }
@@ -1280,288 +1399,6 @@ internal static class Program
 
         return DefWindowProcW(hwnd, msg, wParam, lParam);
     }
-
-    private static unsafe void DrawWindow(nint hdc)
-    {
-        RECT rect;
-        GetClientRect(_hwnd, &rect);
-
-        using var background = NativeBrush.FromRgb(0xFFF8F9FC);
-        FillRect(hdc, &rect, background.Handle);
-
-        if (_smokeTest)
-        {
-            DrawRoundedFill(hdc, 32, 22, 42, 42, 12, 0xFF6659E8);
-
-            TextOutW(hdc, 88, 24, "DownTrack", 9);
-
-            return;
-        }
-
-        DrawHeader(hdc);
-
-        string status;
-        string error;
-        double progress;
-        bool failed;
-        bool rtl;
-
-        lock (UiGate)
-        {
-            status = _statusKey;
-            error = _errorMessage;
-            progress = _progress;
-            failed = _failed;
-            rtl = _language.Equals("he", StringComparison.OrdinalIgnoreCase) ||
-                  _language.Equals("ar", StringComparison.OrdinalIgnoreCase);
-        }
-
-        if (failed)
-        {
-            DrawTextLine(
-                hdc,
-                error,
-                32,
-                104,
-                396,
-                60,
-                16,
-                0xFF1D2430,
-                bold: true,
-                rtl,
-                wordBreak: true);
-
-            DrawTextLine(
-                hdc,
-                GetText("generic_error"),
-                32,
-                169,
-                396,
-                54,
-                13,
-                0xFF6A7483,
-                bold: false,
-                rtl,
-                wordBreak: true);
-
-            DrawButton(hdc, GetText("retry"), 155, 238, 150, 42, rtl);
-            return;
-        }
-
-        var message = string.IsNullOrEmpty(status)
-            ? GetText("getting_ready")
-            : GetText(status);
-
-        DrawTextLine(
-            hdc,
-            message,
-            32,
-            118,
-            396,
-            42,
-            17,
-            0xFF1D2430,
-            bold: true,
-            rtl,
-            wordBreak: true);
-
-        DrawProgress(hdc, progress);
-
-        DrawTextLine(
-            hdc,
-            "DownTrack",
-            32,
-            272,
-            396,
-            24,
-            12,
-            0xFF7B8492,
-            bold: false,
-            rtl: false,
-            wordBreak: false);
-    }
-
-    private static void DrawHeader(nint hdc)
-    {
-        DrawRoundedFill(hdc, 32, 22, 42, 42, 12, 0xFF6659E8);
-        DrawTextLine(
-            hdc,
-            "D",
-            32,
-            22,
-            42,
-            42,
-            21,
-            0xFFFFFFFF,
-            bold: true,
-            rtl: false,
-            wordBreak: false,
-            center: true);
-
-        DrawTextLine(
-            hdc,
-            "DownTrack",
-            88,
-            20,
-            220,
-            24,
-            19,
-            0xFF1D2430,
-            bold: true,
-            rtl: false,
-            wordBreak: false);
-
-        DrawTextLine(
-            hdc,
-            "Web Setup",
-            88,
-            44,
-            200,
-            18,
-            11,
-            0xFF7B8492,
-            bold: false,
-            rtl: false,
-            wordBreak: false);
-
-        DrawRoundedFill(hdc, 324, 26, 66, 34, 10, 0xFFE9EBF3);
-
-        var displayLanguage = _language.ToUpperInvariant()
-            .Replace("-CN", "", StringComparison.Ordinal)
-            .Replace("-TW", "", StringComparison.Ordinal);
-
-        DrawTextLine(
-            hdc,
-            displayLanguage,
-            324,
-            26,
-            66,
-            34,
-            11,
-            0xFF4E5664,
-            bold: true,
-            rtl: false,
-            wordBreak: false,
-            center: true);
-
-        DrawTextLine(
-            hdc,
-            "×",
-            404,
-            18,
-            34,
-            34,
-            22,
-            0xFF59616D,
-            bold: false,
-            rtl: false,
-            wordBreak: false,
-            center: true);
-    }
-
-    private static void DrawProgress(nint hdc, double value)
-    {
-        DrawRoundedFill(hdc, 32, 183, 396, 9, 5, 0xFFE3E6EC);
-
-        var filled = (int)Math.Round(396 * Math.Clamp(value / 100d, 0, 1));
-        if (filled > 0)
-        {
-            DrawRoundedFill(hdc, 32, 183, Math.Max(9, filled), 9, 5, 0xFF6659E8);
-        }
-    }
-
-    private static void DrawButton(
-        nint hdc,
-        string text,
-        int x,
-        int y,
-        int width,
-        int height,
-        bool rtl)
-    {
-        DrawRoundedFill(hdc, x, y, width, height, 10, 0xFF6659E8);
-        DrawTextLine(
-            hdc,
-            text,
-            x,
-            y,
-            width,
-            height,
-            13,
-            0xFFFFFFFF,
-            bold: true,
-            rtl,
-            wordBreak: false,
-            center: true);
-    }
-
-    private static void DrawRoundedFill(
-        nint hdc,
-        int x,
-        int y,
-        int width,
-        int height,
-        int radius,
-        uint color)
-    {
-        using var brush = NativeBrush.FromRgb(color);
-        using var pen = NativePen.FromRgb(color);
-
-        var oldBrush = SelectObject(hdc, brush.Handle);
-        var oldPen = SelectObject(hdc, pen.Handle);
-
-        RoundRect(hdc, x, y, x + width, y + height, radius, radius);
-
-        SelectObject(hdc, oldBrush);
-        SelectObject(hdc, oldPen);
-    }
-
-    private static unsafe void DrawTextLine(
-        nint hdc,
-        string text,
-        int x,
-        int y,
-        int width,
-        int height,
-        int fontSize,
-        uint color,
-        bool bold,
-        bool rtl,
-        bool wordBreak,
-        bool center = false)
-    {
-        var oldFont = SelectObject(hdc, GetStockObject(17));
-        SetTextColor(hdc, ToColorRef(color));
-        SetBkMode(hdc, 1);
-
-        var drawX = x;
-        if (center)
-        {
-            var estimatedWidth = Math.Min(width, Math.Max(16, text.Length * Math.Max(6, fontSize / 2)));
-            drawX = x + Math.Max(0, (width - estimatedWidth) / 2);
-        }
-
-        TextOutW(hdc, drawX, y, text, text.Length);
-
-        SelectObject(hdc, oldFont);
-    }
-
-    private static uint ToColorRef(uint argb)
-    {
-        var r = (argb >> 16) & 0xFF;
-        var g = (argb >> 8) & 0xFF;
-        var b = argb & 0xFF;
-        return (b << 16) | (g << 8) | r;
-    }
-
-    private static bool IsCloseButton(int x, int y) =>
-        x >= 400 && x <= 440 && y >= 12 && y <= 58;
-
-    private static bool IsLanguageButton(int x, int y) =>
-        x >= 320 && x <= 394 && y >= 18 && y <= 66;
-
-    private static bool IsRetryButton(int x, int y) =>
-        x >= 155 && x <= 305 && y >= 238 && y <= 280;
 
     private static unsafe void ShowLanguageMenu(nint hwnd)
     {
@@ -1579,8 +1416,9 @@ internal static class Program
                 AppendMenuW(menu, MFString, (nuint)(1000 + i), item.Name);
             }
 
-            POINT point = new() { X = 324, Y = 64 };
+            POINT point = new() { X = 320, Y = 54 };
             ClientToScreen(hwnd, &point);
+
             _ = TrackPopupMenu(
                 menu,
                 TpmReturnCmd | MFRightButton,
@@ -1594,25 +1432,6 @@ internal static class Program
         {
             DestroyMenu(menu);
         }
-    }
-
-    private static unsafe void SetRoundCorners(nint hwnd)
-    {
-        try
-        {
-            var preference = DwmRound;
-            DwmSetWindowAttribute(
-                hwnd,
-                DwmWindowCornerPreference,
-                ref preference,
-                sizeof(int));
-        }
-        catch
-        {
-        }
-
-        var region = CreateRoundRectRgn(0, 0, Width + 1, Height + 1, 24, 24);
-        SetWindowRgn(hwnd, region, true);
     }
 
     private static void WriteText(string path, string content)
