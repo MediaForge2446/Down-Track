@@ -13,4 +13,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <StartupObject>DownTrack.App</StartupObject>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+  </ItemGroup>
 </Project>
