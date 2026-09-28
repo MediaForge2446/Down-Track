@@ -135,6 +135,19 @@
         </ScrollViewer>
       </Border>
 
+      <!-- First-run engine setup -->
+      <Grid Grid.Row="0" Grid.RowSpan="2" Background="#660D1320" Visibility="{Binding EngineSetupVisibility}" Panel.ZIndex="80">
+        <Border Width="410" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="16" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <StackPanel>
+            <TextBlock Text="DownTrack" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding EngineSetupText}" FontSize="24" FontWeight="SemiBold" Margin="0,12,0,5"/>
+            <TextBlock Text="One-time setup. The required media tools are downloaded and verified in the background." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/>
+            <ProgressBar Height="7" Margin="0,22,0,10" Minimum="0" Maximum="1" Value="{Binding EngineSetupProgress}"/>
+            <TextBlock Text="{Binding EngineSetupDetail}" Foreground="{StaticResource Muted}" FontSize="12"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+
       <!-- Pending changes -->
       <Border Grid.Row="1" Style="{StaticResource Card}" Background="#FFF8EA" BorderBrush="#F0D49F" Margin="24,0,24,18" Padding="14,11" Visibility="{Binding PendingVisibility}" Panel.ZIndex="10">
         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
