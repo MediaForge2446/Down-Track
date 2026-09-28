@@ -1573,7 +1573,7 @@ internal static class Program
             DwmSetWindowAttribute(
                 hwnd,
                 DwmWindowCornerPreference,
-                ref preference,
+                &preference,
                 sizeof(int));
         }
         catch
@@ -1764,7 +1764,7 @@ internal static class Program
     private static extern unsafe nint CreateWindowExW(
         uint dwExStyle,
         char* lpClassName,
-        string lpWindowName,
+        char* lpWindowName,
         uint dwStyle,
         int X,
         int Y,
@@ -1931,10 +1931,10 @@ internal static class Program
         bool bRedraw);
 
     [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(
+    private static extern unsafe int DwmSetWindowAttribute(
         nint hwnd,
         int attribute,
-        ref int value,
+        int* value,
         int size);
 
     [DllImport("user32.dll")]
@@ -1982,7 +1982,7 @@ internal static class Program
         nint pUnkOuter,
         uint dwClsContext,
         Guid* riid,
-        out nint ppv);
+        nint* ppv);
 
     [DllImport("user32.dll")]
     private static extern unsafe int FillRect(
