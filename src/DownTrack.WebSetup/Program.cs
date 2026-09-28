@@ -806,15 +806,22 @@ internal static class Program
         _ = RunInstallerAsync();
     }
 
-    private static string DetectLanguage()
+    private static unsafe string DetectLanguage()
     {
-        var sb = new StringBuilder(85);
-        if (GetUserDefaultLocaleName(sb, sb.Capacity) <= 0)
+        Span<char> buffer = stackalloc char[85];
+        int length;
+
+        fixed (char* localePtr = buffer)
+        {
+            length = GetUserDefaultLocaleName(localePtr, buffer.Length);
+        }
+
+        if (length <= 0)
         {
             return "en";
         }
 
-        var locale = sb.ToString().ToLowerInvariant();
+        var locale = new string(buffer[..length]).ToLowerInvariant();
         if (locale.StartsWith("zh-tw", StringComparison.Ordinal))
         {
             return "zh-TW";
@@ -1114,19 +1121,22 @@ internal static class Program
             var x = (GetSystemMetrics(SmCxScreen) - Width) / 2;
             var y = (GetSystemMetrics(SmCyScreen) - Height) / 2;
 
-            _hwnd = CreateWindowExW(
-                WsExAppWindow,
-                classNamePtr,
-                "DownTrack Web Setup",
-                WsPopup,
+            fixed (char* titlePtr = "DownTrack Web Setup")
+            {
+                _hwnd = CreateWindowExW(
+                    WsExAppWindow,
+                    classNamePtr,
+                    titlePtr,
+                    WsPopup,
                 x,
                 y,
                 Width,
                 Height,
-                nint.Zero,
-                nint.Zero,
-                hInstance,
-                nint.Zero);
+                    nint.Zero,
+                    nint.Zero,
+                    hInstance,
+                    nint.Zero);
+            }
         }
 
         if (_hwnd == nint.Zero)
@@ -1494,7 +1504,11 @@ internal static class Program
             flags |= 0x00000002u | 0x00002000u;
         }
 
-        DrawTextW(hdc, text, text.Length, &rect, flags);
+        fixed (char* textPtr = text)
+        {
+            DrawTextW(hdc, textPtr, text.Length, &rect, flags);
+        }
+
         SelectObject(hdc, oldFont);
     }
 
@@ -1528,7 +1542,10 @@ internal static class Program
             for (var i = 0; i < Languages.Length; i++)
             {
                 var item = Languages[i];
-                AppendMenuW(menu, MFString, (nuint)(1000 + i), item.Name);
+                fixed (char* itemText = item.Name)
+                {
+                    AppendMenuW(menu, MFString, (nuint)(1000 + i), itemText);
+                }
             }
 
             POINT point = new() { X = 324, Y = 64 };
@@ -1839,7 +1856,7 @@ internal static class Program
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern unsafe int DrawTextW(
         nint hDC,
-        string lpchText,
+        char* lpchText,
         int cchText,
         RECT* lpRect,
         uint uFormat);
@@ -1924,11 +1941,11 @@ internal static class Program
     private static extern nint CreatePopupMenu();
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern bool AppendMenuW(
+    private static extern unsafe bool AppendMenuW(
         nint hMenu,
         uint uFlags,
         nuint uIdNewItem,
-        string lpNewItem);
+        char* lpNewItem);
 
     [DllImport("user32.dll")]
     private static extern bool DestroyMenu(nint hMenu);
@@ -1947,8 +1964,8 @@ internal static class Program
     private static extern nint GetModuleHandleW(nint lpModuleName);
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
-    private static extern int GetUserDefaultLocaleName(
-        StringBuilder lpLocaleName,
+    private static extern unsafe int GetUserDefaultLocaleName(
+        char* lpLocaleName,
         int cchLocaleName);
 
     [DllImport("ole32.dll")]
