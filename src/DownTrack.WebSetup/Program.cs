@@ -1102,7 +1102,7 @@ internal static class Program
                 style = CsHRedraw | CsVRedraw,
                 lpfnWndProc = &WindowProc,
                 hInstance = hInstance,
-                hCursor = LoadCursorW(nint.Zero, 32512),
+                hCursor = LoadCursorW(nint.Zero, new nint(32512)),
                 lpszClassName = classNamePtr
             };
 
@@ -1819,7 +1819,7 @@ internal static class Program
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern nint LoadCursorW(
         nint hInstance,
-        int lpCursorName);
+        nint lpCursorName);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern unsafe nint BeginPaint(
