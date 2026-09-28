@@ -8,8 +8,11 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: downtrack-build-${{ github.sha }}
+  group: downtrack-build
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -19,13 +22,17 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+
       - name: Restore
         run: dotnet restore DownTrack.sln
+
       - name: Build
         run: dotnet build DownTrack.sln -c Release --no-restore
-      - name: Publish
+
+      - name: Publish DownTrack
         run: dotnet publish src/DownTrack.App/DownTrack.App.csproj -c Release -r win-x64 --self-contained false -o publish/DownTrack
-      - name: Smoke test
+
+      - name: Smoke test DownTrack
         shell: pwsh
         run: |
           $exe = Join-Path $PWD 'publish/DownTrack/DownTrack.exe'
@@ -43,9 +50,60 @@ jobs:
             Start-Sleep -Milliseconds 500
           }
 
-      - name: Upload artifact
+      - name: Package release preview
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path publish/release | Out-Null
+          Compress-Archive -Path 'publish/DownTrack/*' -DestinationPath 'publish/release/DownTrack-win-x64.zip' -CompressionLevel Fastest
+          $hash = (Get-FileHash 'publish/release/DownTrack-win-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  DownTrack-win-x64.zip" | Set-Content 'publish/release/DownTrack-win-x64.zip.sha256' -Encoding ascii
+          "0.1.0-preview.$env:GITHUB_RUN_NUMBER" | Set-Content 'publish/release/DownTrack-version.txt' -Encoding ascii
+
+      - name: Publish WebSetup
+        run: dotnet publish src/DownTrack.WebSetup/DownTrack.WebSetup.csproj -c Release -r win-x64 -o publish/WebSetup
+
+      - name: Validate WebSetup single file
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
+          if (-not (Test-Path $exe)) { throw "WebSetup executable not found: $exe" }
+          $files = Get-ChildItem 'publish/WebSetup' -File
+          if ($files.Count -ne 1 -or $files[0].Name -ne 'DownTrack-WebSetup.exe') {
+            throw "WebSetup publish is not a single-file payload."
+          }
+          $sizeMb = [Math]::Round((Get-Item $exe).Length / 1MB, 2)
+          Write-Host "DownTrack-WebSetup.exe size: $sizeMb MB"
+
+      - name: Smoke test WebSetup
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
+          $process = Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
+          if (-not $process.WaitForExit(10000)) {
+            Stop-Process -Id $process.Id -Force
+            throw "WebSetup smoke test timed out."
+          }
+          if ($process.ExitCode -ne 0) {
+            throw "WebSetup smoke test failed with code $($process.ExitCode)."
+          }
+
+      - name: Upload DownTrack artifact
         uses: actions/upload-artifact@v4
         with:
           name: DownTrack-win-x64
           path: publish/DownTrack
+          if-no-files-found: error
+
+      - name: Upload WebSetup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DownTrack-WebSetup
+          path: publish/WebSetup/DownTrack-WebSetup.exe
+          if-no-files-found: error
+
+      - name: Upload release preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: DownTrack-release-preview
+          path: publish/release
           if-no-files-found: error

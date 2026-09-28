@@ -4,6 +4,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DownTrack", "src\DownTrack.App\DownTrack.App.csproj", "{6A8C3A53-6F1E-4D6F-8E6B-9F0F5C3A7D1C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DownTrack-WebSetup", "src\DownTrack.WebSetup\DownTrack.WebSetup.csproj", "{D8C4A7A1-3C8C-45C7-AE8D-C3E4F7F4D9D1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -14,5 +16,9 @@ Global
 		{6A8C3A53-6F1E-4D6F-8E6B-9F0F5C3A7D1C}.Debug|x64.Build.0 = Debug|x64
 		{6A8C3A53-6F1E-4D6F-8E6B-9F0F5C3A7D1C}.Release|x64.ActiveCfg = Release|x64
 		{6A8C3A53-6F1E-4D6F-8E6B-9F0F5C3A7D1C}.Release|x64.Build.0 = Release|x64
+		{D8C4A7A1-3C8C-45C7-AE8D-C3E4F7F4D9D1}.Debug|x64.ActiveCfg = Debug|x64
+		{D8C4A7A1-3C8C-45C7-AE8D-C3E4F7F4D9D1}.Debug|x64.Build.0 = Debug|x64
+		{D8C4A7A1-3C8C-45C7-AE8D-C3E4F7F4D9D1}.Release|x64.ActiveCfg = Release|x64
+		{D8C4A7A1-3C8C-45C7-AE8D-C3E4F7F4D9D1}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 EndGlobal
