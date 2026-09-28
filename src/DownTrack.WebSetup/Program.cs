@@ -1779,7 +1779,7 @@ internal static class Program
     private static extern unsafe int TranslateMessage(MSG* lpMsg);
 
     [DllImport("user32.dll")]
-    private static extern nint PostQuitMessage(int nExitCode);
+    private static extern void PostQuitMessage(int nExitCode);
 
     [DllImport("user32.dll")]
     private static extern nint PostMessageW(
@@ -1789,13 +1789,13 @@ internal static class Program
         nint lParam);
 
     [DllImport("user32.dll")]
-    private static extern nint DestroyWindow(nint hWnd);
+    private static extern bool DestroyWindow(nint hWnd);
 
     [DllImport("user32.dll")]
-    private static extern int ShowWindow(nint hWnd, int nCmdShow);
+    private static extern bool ShowWindow(nint hWnd, int nCmdShow);
 
     [DllImport("user32.dll")]
-    private static extern nint UpdateWindow(nint hWnd);
+    private static extern bool UpdateWindow(nint hWnd);
 
     [DllImport("user32.dll")]
     private static extern bool InvalidateRect(
