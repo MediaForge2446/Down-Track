@@ -1501,29 +1501,16 @@ internal static class Program
         SetTextColor(hdc, ToColorRef(color));
         SetBkMode(hdc, 1);
 
-        RECT rect = new()
-        {
-            Left = x,
-            Top = y,
-            Right = x + width,
-            Bottom = y + height
-        };
-
-        uint flags = wordBreak ? 0x00000010u : 0;
+        var drawX = x;
         if (center)
         {
-            flags |= 0x00000001u;
-            flags |= 0x00000004u;
-        }
-
-        if (rtl)
-        {
-            flags |= 0x00000002u | 0x00002000u;
+            var estimatedWidth = Math.Min(width, Math.Max(16, text.Length * Math.Max(6, fontSize / 2)));
+            drawX = x + Math.Max(0, (width - estimatedWidth) / 2);
         }
 
         fixed (char* textPtr = text)
         {
-            DrawTextW(hdc, textPtr, text.Length, &rect, flags);
+            TextOutW(hdc, drawX, y, textPtr, text.Length);
         }
 
         SelectObject(hdc, oldFont);
@@ -1871,12 +1858,12 @@ internal static class Program
         RECT* lpRect);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern unsafe int DrawTextW(
+    private static extern unsafe bool TextOutW(
         nint hDC,
-        char* lpchText,
-        int cchText,
-        RECT* lpRect,
-        uint uFormat);
+        int x,
+        int y,
+        char* lpString,
+        int c);
 
     [DllImport("user32.dll")]
     private static extern uint SetTextColor(
