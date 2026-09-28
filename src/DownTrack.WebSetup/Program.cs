@@ -1250,6 +1250,18 @@ internal static class Program
         if (_smokeTest)
         {
             DrawRoundedFill(hdc, 32, 22, 42, 42, 12, 0xFF6659E8);
+            DrawTextLine(
+                hdc,
+                "DownTrack",
+                88,
+                24,
+                220,
+                28,
+                18,
+                0xFF1D2430,
+                bold: true,
+                rtl: false,
+                wordBreak: false);
             return;
         }
 
