@@ -14,6 +14,8 @@ public sealed class EngineSetupService
     const string YtDlpChecksumsUrl = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS";
     const string FfmpegZipUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
     const string FfmpegChecksumsUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256";
+    const string DenoZipUrl = "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip";
+    const string DenoChecksumsUrl = "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip.sha256sum";
 
     readonly HttpClient http = new() { Timeout = TimeSpan.FromMinutes(10) };
 
@@ -23,6 +25,7 @@ public sealed class EngineSetupService
         var yt = Path.Combine(EngineFolder, "yt-dlp.exe");
         var ffmpeg = Path.Combine(EngineFolder, "ffmpeg.exe");
         var ffprobe = Path.Combine(EngineFolder, "ffprobe.exe");
+        var deno = Path.Combine(EngineFolder, "deno.exe");
 
         if (forceUpdate || !File.Exists(yt))
         {
@@ -55,6 +58,24 @@ public sealed class EngineSetupService
             {
                 try { if (File.Exists(zip)) File.Delete(zip); } catch { }
             }
+        }
+
+        if (forceUpdate || !File.Exists(deno))
+        {
+            status?.Report("Setting up Deno…");
+            var zip = Path.Combine(Path.GetTempPath(), "DownTrack-deno.zip");
+            try
+            {
+                await DownloadVerifiedAsync(DenoZipUrl, DenoChecksumsUrl, zip, "deno-x86_64-pc-windows-msvc.zip", progress, cancellationToken);
+                var extract = Path.Combine(Path.GetTempPath(), "DownTrack-deno-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(extract);
+                ZipFile.ExtractToDirectory(zip, extract, true);
+                var found = Directory.EnumerateFiles(extract, "deno.exe", SearchOption.AllDirectories).FirstOrDefault();
+                if (found is null) throw new InvalidOperationException("The Deno package did not contain deno.exe.");
+                File.Copy(found, deno, true);
+                Directory.Delete(extract, true);
+            }
+            finally { try { if (File.Exists(zip)) File.Delete(zip); } catch { } }
         }
 
         await File.WriteAllTextAsync(Path.Combine(EngineFolder, "engine.ready"), DateTimeOffset.UtcNow.ToString("O"), cancellationToken);
