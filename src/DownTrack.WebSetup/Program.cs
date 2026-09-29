@@ -208,6 +208,7 @@ internal static class Program
             SetStatus("verifying", 83);
             var expectedHash = await ReadExpectedShaAsync(LatestShaUrl);
             var actualHash = await ComputeSha256Async(DownloadZip);
+            Log("HASH VERIFY | expected=" + expectedHash + " | actual=" + actualHash);
             if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException("Checksum validation failed.");
