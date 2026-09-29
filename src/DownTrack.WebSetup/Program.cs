@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO.Compression;
@@ -25,11 +26,12 @@ internal static class Program
     private const string DesktopRuntimeUrl =
         "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe";
 
-    private const int Width = 460;
+    private const int Width = 500;
     private const int Height = 320;
     private const uint WmAppUpdate = 0x8001;
     private const uint WmCommand = 0x0111;
     private const uint WmPaint = 0x000F;
+    private const uint WmEraseBkgnd = 0x0014;
     private const uint WmLButtonDown = 0x0201;
     private const uint WmNCHitTest = 0x0084;
     private const uint WmDestroy = 0x0002;
@@ -44,7 +46,12 @@ internal static class Program
     private const int WhiteBrush = 0;
     private const uint WmSetFont = 0x0030;
     private const uint PbsSmooth = 0x0001;
+    private const uint PbmSetPos = 0x0402;
+    private const uint PbmSetBarColor = 0x0409;
+    private const uint PbmSetBkColor = 0x2001;
     private const uint SsCenterImage = 0x0200;
+    private const uint SsNotify = 0x0100;
+    private const uint SsRight = 0x0002;
     private const uint WmCtlColorStatic = 0x0138;
     private const int TransparentBkMode = 1;
     private const uint MFString = 0x00000000;
@@ -74,6 +81,9 @@ internal static class Program
     private static readonly string EngineFfprobe = Path.Combine(EngineDir, "ffprobe.exe");
     private static readonly string EngineDeno = Path.Combine(EngineDir, "deno.exe");
     private static readonly string EngineReady = Path.Combine(EngineDir, "engine.ready");
+    private static readonly string InstallerLogPath = Path.Combine(UserDataRoot, "installer.log");
+    private static string ActiveLogPath = InstallerLogPath;
+    private static readonly object LogGate = new();
 
     private static readonly HttpClient Http = CreateHttpClient();
 
@@ -114,8 +124,10 @@ internal static class Program
 
     private static unsafe void Main(string[] args)
     {
+        InitializeInstallerLog();
         _smokeTest = args.Any(a => string.Equals(a, "--smoke-test", StringComparison.OrdinalIgnoreCase));
         _language = _smokeTest ? "en" : DetectLanguage();
+        Log($"WebSetup start | smokeTest={_smokeTest} | language={_language} | os={Environment.OSVersion}");
 
         if (!CreateMainWindow())
         {
@@ -131,7 +143,7 @@ internal static class Program
         }
         else
         {
-            _ = RunInstallerAsync();
+            _ = Task.Run(RunInstallerAsync);
         }
 
         MSG msg;
@@ -1274,7 +1286,6 @@ internal static class Program
     private const int ControlTitle = 2002;
     private const int ControlSubtitle = 2003;
     private const int ControlLanguage = 2004;
-    private const int ControlClose = 2005;
     private const int ControlStatus = 2006;
     private const int ControlProgress = 2007;
     private const int ControlFooter = 2008;
@@ -1286,7 +1297,6 @@ internal static class Program
     private static nint _readyTitleHwnd;
     private static nint _subtitleHwnd;
     private static nint _languageHwnd;
-    private static nint _closeHwnd;
     private static nint _statusHwnd;
     private static nint _progressHwnd;
     private static nint _footerHwnd;
