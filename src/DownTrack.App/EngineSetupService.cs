@@ -115,7 +115,7 @@ public sealed class EngineSetupService
             await using var verifyStream = File.OpenRead(temp);
             var actual = Convert.ToHexString(await sha.ComputeHashAsync(verifyStream, cancellationToken)).ToLowerInvariant();
             var checksums = await http.GetStringAsync(checksumUrl, cancellationToken);
-            var match = checksums.Split("\r\n", "\n", StringSplitOptions.RemoveEmptyEntries)
+            var match = checksums.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(line => Regex.Split(line.Trim(), @"\s+"))
                 .Where(parts => parts.Length >= 1 && parts[0].Length == 64 && parts[0].All(Uri.IsHexDigit))
                 .FirstOrDefault(parts => parts.Length == 1 || parts.Skip(1).Any(x => x.TrimStart('*').Equals(fileName, StringComparison.OrdinalIgnoreCase)));
