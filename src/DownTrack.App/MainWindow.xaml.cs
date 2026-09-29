@@ -22,7 +22,7 @@ using Forms = System.Windows.Forms;
 
 namespace DownTrack;
 
-public sealed partial class MainWindow : Window, INotifyPropertyChanged
+public sealed partial class MainWindow : FluentWindow, INotifyPropertyChanged
 {
     readonly string stateFile=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"DownTrack","state.json");
     readonly EngineSetupService engine=new();
@@ -38,7 +38,7 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged
     readonly List<string> history=[];int historyIndex=-1;bool navigating;int toastVersion;CancellationTokenSource? inspectCts;
     string language="auto",theme="System",filter="All",search="",defaultFormat="MP3";int defaultBitrate=128;string? selectedRoot;MediaItem? selectedItem;string page="Library";string toastText="";bool downloadVisible;bool previewPlaylist;
 
-    public MainWindow(){InitializeComponent();DataContext=this;Loaded+=async(_,_)=>{WindowState=WindowState.Maximized;ApplyMica();await LoadTranslationsAsync();await LoadStateAsync();_=EnsureMediaEngineQuietAsync();};}
+    public MainWindow(){InitializeComponent();DataContext=this;Loaded+=async(_,_)=>{WindowState=WindowState.Maximized;await LoadTranslationsAsync();await LoadStateAsync();_=EnsureMediaEngineQuietAsync();};}
 
     public ObservableCollection<string> RootFolders=>rootFolders;public ObservableCollection<MediaItem> Items=>items;public ObservableCollection<PendingChange> PendingChanges=>pending;
     public string? SelectedRoot{get=>selectedRoot;set{if(value==selectedRoot)return;selectedRoot=value;Breadcrumb=value??"Library";if(!navigating&&value!=null){if(historyIndex<history.Count-1)history.RemoveRange(historyIndex+1,history.Count-historyIndex-1);history.Add(value);historyIndex=history.Count-1;}OnPropertyChanged();OnPropertyChanged(nameof(Breadcrumb));RefreshItems();}}
@@ -80,8 +80,50 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged
     async Task LoadStateAsync(){try{if(File.Exists(stateFile)){await using var s=File.OpenRead(stateFile);var st=await JsonSerializer.DeserializeAsync<StoredState>(s);if(st!=null){language=st.Language??"auto";theme=st.Theme??"System";defaultFormat=st.DefaultFormat??"MP3";defaultBitrate=st.DefaultBitrate==0?128:st.DefaultBitrate;foreach(var r in st.RootFolders??[])rootFolders.Add(r);foreach(var p in st.Pending??[])pending.Add(p);}}}catch{}ApplyLanguage();ApplyTheme(theme);if(rootFolders.Count>0){navigating=true;SelectedRoot=rootFolders[0];navigating=false;history.Clear();history.Add(SelectedRoot!);historyIndex=0;Page="Library";}RefreshItems();}
     async Task SaveStateAsync(){try{Directory.CreateDirectory(Path.GetDirectoryName(stateFile)!);var st=new StoredState{Language=language,Theme=theme,DefaultFormat=defaultFormat,DefaultBitrate=defaultBitrate,RootFolders=rootFolders.ToList(),Pending=pending.ToList()};var tmp=stateFile+".tmp";await using(var s=File.Create(tmp))await JsonSerializer.SerializeAsync(s,st,new JsonSerializerOptions{WriteIndented=true});File.Move(tmp,stateFile,true);}catch{}}
     void ApplyLanguage(){OnPropertyChanged(null);FlowDirection=EffectiveLanguage() is "he" or "ar"?System.Windows.FlowDirection.RightToLeft:System.Windows.FlowDirection.LeftToRight;}
-    void ApplyTheme(string value){var dark=value=="Dark";if(value=="System"){try{dark=((int?)Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize","AppsUseLightTheme",1)??1)==0;}catch{dark=SystemParameters.HighContrast;}_=System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(()=>ApplicationThemeManager.ApplySystemTheme()));}else{var appTheme=dark?ApplicationTheme.Dark:ApplicationTheme.Light;_=System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(()=>ApplicationThemeManager.Apply(appTheme,WindowBackdropType.Mica)));}var r=System.Windows.Application.Current.Resources;r["AppBg"]=Brush(dark?"#17181C":"#F7F8FB");r["Surface"]=Brush(dark?"#22242A":"#FFFFFF");r["Surface2"]=Brush(dark?"#2C2F36":"#F2F4F8");r["Border"]=Brush(dark?"#3A3D45":"#E1E5EC");r["Text"]=Brush(dark?"#F4F5F8":"#1A2230");r["Muted"]=Brush(dark?"#A9AFBC":"#667185");OnPropertyChanged(nameof(SystemTheme));OnPropertyChanged(nameof(LightTheme));OnPropertyChanged(nameof(DarkTheme));OnPropertyChanged(null);}static System.Windows.Media.SolidColorBrush Brush(string hex)=> (System.Windows.Media.SolidColorBrush)new System.Windows.Media.BrushConverter().ConvertFrom(hex)!;
+    void ApplyTheme(string value)
+    {
+        var dark=value=="Dark";
 
+        if(value=="System")
+        {
+            ApplicationThemeManager.ApplySystemTheme();
+            try
+            {
+                dark=((int?)Microsoft.Win32.Registry.GetValue(
+                    @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                    "AppsUseLightTheme",1)??1)==0;
+            }
+            catch
+            {
+                dark=SystemParameters.HighContrast;
+            }
+        }
+        else
+        {
+            ApplicationThemeManager.Apply(dark?ApplicationTheme.Dark:ApplicationTheme.Light);
+        }
+
+        var r=System.Windows.Application.Current.Resources;
+        r["AppBg"]=Brush(dark?"#17181C":"#F7F8FB");
+        r["Surface"]=Brush(dark?"#22242A":"#FFFFFF");
+        r["Surface2"]=Brush(dark?"#2C2F36":"#F2F4F8");
+        r["Border"]=Brush(dark?"#3A3D45":"#E1E5EC");
+        r["Text"]=Brush(dark?"#F4F5F8":"#1A2230");
+        r["Muted"]=Brush(dark?"#A9AFBC":"#667185");
+        r["SideBarBackground"]=Brush(dark?"#202227":"#F1F3F7");
+        r["SearchBackground"]=Brush(dark?"#2A2D33":"#F4F5F8");
+        r["IconBackground"]=Brush(dark?"#30343C":"#ECEEF5");
+        r["AccentSoft"]=Brush(dark?"#323255":"#EAEAFF");
+        r["PendingBackground"]=Brush(dark?"#352B18":"#FFF8EA");
+        r["PendingBorder"]=Brush(dark?"#6A5526":"#F0D49F");
+        r["PendingText"]=Brush(dark?"#F4C86A":"#9A6700");
+        OnPropertyChanged(nameof(SystemTheme));
+        OnPropertyChanged(nameof(LightTheme));
+        OnPropertyChanged(nameof(DarkTheme));
+        OnPropertyChanged(null);
+    }
+    static System.Windows.Media.SolidColorBrush Brush(string hex)=>
+        (System.Windows.Media.SolidColorBrush)new System.Windows.Media.BrushConverter().ConvertFrom(hex)!;
         void OpenRoot(string path){SelectedRoot=path;Page="Explorer";OnPropertyChanged(nameof(ExplorerTitle));}
     public void AddRoot(){using var d=new Forms.FolderBrowserDialog{Description="Choose a root folder for DownTrack."};if(d.ShowDialog()!=Forms.DialogResult.OK)return;if(rootFolders.Any(x=>x.Equals(d.SelectedPath,StringComparison.OrdinalIgnoreCase)))return;rootFolders.Add(d.SelectedPath);OpenRoot(d.SelectedPath);_=SaveStateAsync();ShowToast("Root folder added to your library.");}
     void OpenAddMedia(){if(string.IsNullOrWhiteSpace(SelectedRoot)){AddRoot();if(string.IsNullOrWhiteSpace(SelectedRoot))return;}DownloadVisible=true;OnPropertyChanged(nameof(DefaultBitrate));Quality.SelectedIndex=Math.Max(0,Array.IndexOf(new[]{128,192,256,320},defaultBitrate));Mp3.IsChecked=defaultFormat=="MP3";Mp4.IsChecked=defaultFormat=="MP4";}
