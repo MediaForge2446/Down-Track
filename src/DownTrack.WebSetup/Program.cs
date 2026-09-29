@@ -2059,6 +2059,41 @@ internal static class Program
     private static extern int DeleteObject(nint hObject);
 
     [DllImport("gdi32.dll")]
+    private static extern int Ellipse(
+        nint hdc,
+        int left,
+        int top,
+        int right,
+        int bottom);
+
+    [DllImport("gdi32.dll")]
+    private static extern int Rectangle(
+        nint hdc,
+        int left,
+        int top,
+        int right,
+        int bottom);
+
+    [DllImport("gdi32.dll")]
+    private static extern unsafe int Polygon(
+        nint hdc,
+        POINT* points,
+        int count);
+
+    [DllImport("gdi32.dll")]
+    private static extern int MoveToEx(
+        nint hdc,
+        int x,
+        int y,
+        nint lpPoint);
+
+    [DllImport("gdi32.dll")]
+    private static extern int LineTo(
+        nint hdc,
+        int x,
+        int y);
+
+    [DllImport("gdi32.dll")]
     private static extern int RoundRect(
         nint hdc,
         int left,
