@@ -163,7 +163,8 @@ public sealed partial class MainWindow : FluentWindow, INotifyPropertyChanged
             await engine.EnsureAsync(null,null,true);
             OnPropertyChanged(nameof(EngineSummary));
             return HasAllTools();
-                catch(Exception ex)
+        }
+        catch(Exception ex)
         {
             OnPropertyChanged(nameof(EngineSummary));
             if(repair)
