@@ -1254,29 +1254,23 @@ internal static class Program
     private static nint CreateChildControls(nint parent)
     {
         const uint SsCenter = 0x00000001;
-        const uint BsPushButton = 0x00000000;
 
-        _brandHwnd = CreateChild(parent, "STATIC", "D", 155, 24, 150, 52, ControlBrand, SsCenter | SsCenterImage);
-        _titleHwnd = CreateChild(parent, "STATIC", "DownTrack", 100, 76, 260, 30, ControlTitle, SsCenter | SsCenterImage);
-        _subtitleHwnd = CreateChild(parent, "STATIC", "Web Setup", 0, 0, 1, 1, ControlSubtitle, 0);
-        _readyTitleHwnd = CreateChild(parent, "STATIC", "Getting DownTrack ready…", 48, 120, 364, 28, ControlReadyTitle, SsCenter | SsCenterImage);
+        _brandHwnd = CreateChild(parent, "STATIC", "", 0, 0, 1, 1, ControlBrand, SsCenter);
+        _titleHwnd = CreateChild(parent, "STATIC", "DownTrack", 90, 76, 320, 30, ControlTitle, SsCenter | SsCenterImage);
+        _subtitleHwnd = CreateChild(parent, "STATIC", "", 0, 0, 1, 1, ControlSubtitle, 0);
+        _readyTitleHwnd = CreateChild(parent, "STATIC", "Getting DownTrack ready...", 35, 126, 430, 34, ControlReadyTitle, SsCenter | SsCenterImage);
 
-        _languageHwnd = CreateChild(parent, "BUTTON", "EN", 360, 18, 54, 30, ControlLanguage, BsPushButton);
-        _closeHwnd = CreateChild(parent, "BUTTON", "×", 414, 14, 30, 32, ControlClose, BsPushButton);
+        _languageHwnd = CreateChild(parent, "STATIC", "English ⌄", 365, 18, 112, 28, ControlLanguage, SsNotify | SsRight | SsCenterImage);
+        _statusHwnd = CreateChild(parent, "STATIC", "", 35, 163, 430, 25, ControlStatus, SsCenter | SsCenterImage);
+        _progressHwnd = CreateChild(parent, "msctls_progress32", "", 50, 205, 400, 6, ControlProgress, PbsSmooth);
+        _footerHwnd = CreateChild(parent, "STATIC", "", 0, 0, 1, 1, ControlFooter, 0);
+        _retryHwnd = CreateChild(parent, "STATIC", "Try again", 180, 225, 140, 42, ControlRetry, SsNotify | SsCenter | SsCenterImage);
 
-        _statusHwnd = CreateChild(parent, "STATIC", "", 48, 150, 364, 24, ControlStatus, SsCenter | SsCenterImage);
-        _progressHwnd = CreateChild(parent, "msctls_progress32", "", 48, 188, 364, 8, ControlProgress, PbsSmooth);
-        _footerHwnd = CreateChild(parent, "STATIC", "DownTrack", 0, 0, 1, 1, ControlFooter, SsCenter | SsCenterImage);
-        _retryHwnd = CreateChild(parent, "BUTTON", "Try again", 155, 218, 150, 38, ControlRetry, BsPushButton);
-
-        SetWindowTheme(_languageHwnd, "Explorer", null);
-        SetWindowTheme(_closeHwnd, "Explorer", null);
-        SetWindowTheme(_retryHwnd, "Explorer", null);
-        SetWindowTheme(_progressHwnd, "Explorer", null);
+        SetWindowTheme(_progressHwnd, "", null);
 
         var dpi = (int)GetDpiForWindow(_hwnd);
-        _logoFont = CreateUiFont(26, 700, dpi);
-        _titleFont = CreateUiFont(14, 600, dpi);
+        _logoFont = CreateUiFont(10, 400, dpi);
+        _titleFont = CreateUiFont(19, 600, dpi);
         _bodyFont = CreateUiFont(10.5f, 400, dpi);
         _smallFont = CreateUiFont(9.5f, 400, dpi);
 
@@ -1284,17 +1278,18 @@ internal static class Program
         ApplyFont(_titleHwnd, _titleFont);
         ApplyFont(_subtitleHwnd, _smallFont);
         ApplyFont(_readyTitleHwnd, _titleFont);
-        ApplyFont(_languageHwnd, _bodyFont);
-        ApplyFont(_closeHwnd, _bodyFont);
+        ApplyFont(_languageHwnd, _smallFont);
         ApplyFont(_statusHwnd, _smallFont);
         ApplyFont(_progressHwnd, _bodyFont);
         ApplyFont(_footerHwnd, _smallFont);
-        ApplyFont(_retryHwnd, _bodyFont);
+        ApplyFont(_retryHwnd, _smallFont);
 
         ShowWindow(_subtitleHwnd, 0);
         ShowWindow(_footerHwnd, 0);
 
-        SendMessageW(_progressHwnd, 0x0401, 0, 100);
+        SendMessageW(_progressHwnd, PbmSetBarColor, 0, (nint)ToColorRef(0xFF6366F1u));
+        SendMessageW(_progressHwnd, PbmSetBkColor, 0, (nint)ToColorRef(0xFFE5E7EBu));
+        SendMessageW(_progressHwnd, PbmSetPos, 0, 0);
         ShowWindow(_retryHwnd, 0);
         return _hwnd;
     }
