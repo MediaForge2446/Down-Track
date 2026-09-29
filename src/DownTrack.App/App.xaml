@@ -25,9 +25,14 @@
       <SolidColorBrush x:Key="AccentSoft" Color="#EAEAFF" />
       <SolidColorBrush x:Key="PendingBackground" Color="#FFF8EA" />
       <SolidColorBrush x:Key="PendingBorder" Color="#F0D49F" />
+      <SolidColorBrush x:Key="PendingSurface" Color="#FFF0D2" />
+      <SolidColorBrush x:Key="SavedSurface" Color="#DDF6EA" />
       <SolidColorBrush x:Key="StatusSavedBrush" Color="#10B981" />
       <SolidColorBrush x:Key="StatusPendingBrush" Color="#F59E0B" />
       <SolidColorBrush x:Key="PendingText" Color="#9A6700" />
+      <SolidColorBrush x:Key="OverlayScrim" Color="#660D1320" />
+      <SolidColorBrush x:Key="ModalSurface" Color="#F4F5FA" />
+      <SolidColorBrush x:Key="ToastSurface" Color="#20242B" />
 
       <Style TargetType="TextBlock">
         <Setter Property="FontFamily" Value="Segoe UI Variable" />
