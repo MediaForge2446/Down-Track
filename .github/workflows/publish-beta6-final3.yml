@@ -139,87 +139,50 @@ jobs:
           git push origin "+refs/tags/$env:RELEASE_TAG"
 
       - name: Create or update beta.6 release
-        uses: actions/github-script@v7
-        with:
-          github-token: \${{ github.token }}
-          script: |
-            const fs = require('fs');
-            const path = require('path');
+        shell: pwsh
+        run: |
+          $header = (git config --local --get-all http.https://github.com/.extraheader | Select-Object -Last 1)
+          if ([string]::IsNullOrWhiteSpace($header)) {
+            throw "GitHub checkout credential was not available."
+          }
 
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const tag = process.env.RELEASE_TAG;
-            const target = process.env.RELEASE_TARGET;
+          $token = $null
+          if ($header -match 'basic\s+(.+)$') {
+            $decoded = [Text.Encoding]::ASCII.GetString([Convert]::FromBase64String($Matches[1]))
+            $colon = $decoded.IndexOf(':')
+            if ($colon -lt 0) { throw "GitHub checkout credential format is invalid." }
+            $token = $decoded.Substring($colon + 1)
+          }
+          elseif ($header -match 'bearer\s+(.+)$') {
+            $token = $Matches[1]
+          }
 
-            let release;
-            try {
-              const response = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
-              release = response.data;
+          if ([string]::IsNullOrWhiteSpace($token)) {
+            throw "Could not extract GitHub API credential from checkout configuration."
+          }
 
-              const existing = await github.rest.repos.listReleaseAssets({
-                owner,
-                repo,
-                release_id: release.id,
-                per_page: 100
-              });
+          $env:GH_TOKEN = $token
+          $repoPath = $env:GITHUB_REPOSITORY
+          $apiCheck = gh api "repos/$repoPath" --jq '.full_name'
+          if ($apiCheck -ne $repoPath) {
+            throw "GitHub API authentication check failed."
+          }
 
-              for (const asset of existing.data) {
-                if ([
-                  'DownTrack-win-x64.zip',
-                  'DownTrack-win-x64.zip.sha256',
-                  'DownTrack-version.txt',
-                  'DownTrack-WebSetup.exe',
-                  'DownTrack-WebSetup.exe.sha256'
-                ].includes(asset.name)) {
-                  await github.rest.repos.deleteReleaseAsset({
-                    owner,
-                    repo,
-                    asset_id: asset.id
-                  });
-                }
-              }
-            } catch (error) {
-              if (error.status !== 404) throw error;
+          $assets = @(
+            'publish/release/DownTrack-win-x64.zip',
+            'publish/release/DownTrack-win-x64.zip.sha256',
+            'publish/release/DownTrack-version.txt',
+            'publish/WebSetup/DownTrack-WebSetup.exe',
+            'publish/release/DownTrack-WebSetup.exe.sha256'
+          )
 
-              const response = await github.rest.repos.createRelease({
-                owner,
-                repo,
-                tag_name: tag,
-                target_commitish: target,
-                name: 'DownTrack ' + tag,
-                prerelease: true,
-                generate_release_notes: true
-              });
-
-              release = response.data;
-            }
-
-            const assets = [
-              'publish/release/DownTrack-win-x64.zip',
-              'publish/release/DownTrack-win-x64.zip.sha256',
-              'publish/release/DownTrack-version.txt',
-              'publish/WebSetup/DownTrack-WebSetup.exe',
-              'publish/release/DownTrack-WebSetup.exe.sha256'
-            ];
-
-            for (const assetPath of assets) {
-              const assetName = path.basename(assetPath);
-              const data = fs.readFileSync(assetPath);
-
-              await github.rest.repos.uploadReleaseAsset({
-                owner,
-                repo,
-                release_id: release.id,
-                name: assetName,
-                data,
-                headers: {
-                  'content-type': 'application/octet-stream',
-                  'content-length': data.length
-                }
-              });
-            }
-
-            core.info('Release updated: ' + release.html_url);
+          gh release view $env:RELEASE_TAG 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG $assets --clobber
+          }
+          else {
+            gh release create $env:RELEASE_TAG $assets --target $env:RELEASE_TARGET --title "DownTrack $env:RELEASE_TAG" --generate-notes --prerelease
+          }
 
       - name: End-to-end installer validation
         shell: pwsh
