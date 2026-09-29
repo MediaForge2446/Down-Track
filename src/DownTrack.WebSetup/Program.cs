@@ -46,7 +46,7 @@ internal static class Program
     private const uint PbsSmooth = 0x0001;
     private const uint SsCenterImage = 0x0200;
     private const uint WmCtlColorStatic = 0x0138;
-    private const uint TransparentBkMode = 1;
+    private const int TransparentBkMode = 1;
     private const uint MFString = 0x00000000;
     private const uint MFRightButton = 0x0002;
     private const uint TpmReturnCmd = 0x0100;
