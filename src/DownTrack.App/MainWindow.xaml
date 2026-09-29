@@ -93,7 +93,7 @@
                                                 </StackPanel>
 
                                                 <ui:Button Grid.Column="1"
-                                                           Content="{Binding OpenText, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                           Content="{Binding DataContext.OpenText, RelativeSource={RelativeSource AncestorType={x:Type ui:FluentWindow}}}"
                                                            Tag="{Binding}"
                                                            Appearance="Primary"
                                                            Padding="16,8"
@@ -793,11 +793,15 @@
             </Border>
 
             <ui:Button Grid.Row="4"
-                       Content="⚙  {Binding SettingsText, Mode=OneWay}"
                        Style="{StaticResource Nav}"
                        Height="40"
                        Margin="10,0,10,2"
-                       Click="Settings_Click" />
+                       Click="Settings_Click">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="⚙" Margin="0,0,8,0" />
+                    <TextBlock Text="{Binding SettingsText, Mode=OneWay}" />
+                </StackPanel>
+            </ui:Button>
         </Grid>
     </Grid>
 </ui:FluentWindow>
