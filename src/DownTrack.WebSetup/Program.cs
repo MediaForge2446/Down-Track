@@ -864,6 +864,7 @@ internal static class Program
             "close_to_update" => strings.CloseToUpdate,
             "generic_error" => strings.GenericError,
             "retry" => strings.Retry,
+            "error_title" => ErrorTitles.TryGetValue(_language, out var title) ? title : ErrorTitles["en"],
             _ => "DownTrack"
         };
     }
@@ -1172,6 +1173,30 @@ internal static class Program
         string GenericError,
         string Retry);
 
+    private static readonly Dictionary<string, string> ErrorTitles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["en"] = "Download interrupted",
+        ["he"] = "ההורדה הופסקה",
+        ["es"] = "Descarga interrumpida",
+        ["fr"] = "Téléchargement interrompu",
+        ["de"] = "Download unterbrochen",
+        ["it"] = "Download interrotto",
+        ["pt"] = "Download interrompido",
+        ["nl"] = "Download onderbroken",
+        ["pl"] = "Pobieranie przerwane",
+        ["cs"] = "Stahování přerušeno",
+        ["tr"] = "İndirme kesildi",
+        ["uk"] = "Завантаження перервано",
+        ["ru"] = "Загрузка прервана",
+        ["ar"] = "تم إيقاف التنزيل",
+        ["el"] = "Η λήψη διακόπηκε",
+        ["ro"] = "Descărcarea a fost întreruptă",
+        ["ja"] = "ダウンロードが中断されました",
+        ["ko"] = "다운로드가 중단되었습니다",
+        ["zh-cn"] = "下载已中断",
+        ["zh-tw"] = "下載已中斷"
+    };
+
     private const int ControlBrand = 2001;
     private const int ControlTitle = 2002;
     private const int ControlSubtitle = 2003;
@@ -1363,8 +1388,6 @@ internal static class Program
         }
 
         string status;
-        string footer;
-        string language;
         bool failed;
         double progress;
 
@@ -1372,30 +1395,22 @@ internal static class Program
         {
             failed = _failed;
             progress = _progress;
-            language = _language
-                .ToUpperInvariant()
-                .Replace("-CN", "", StringComparison.Ordinal)
-                .Replace("-TW", "", StringComparison.Ordinal);
-
             status = failed
                 ? _errorMessage
                 : string.IsNullOrEmpty(_statusKey)
                     ? GetText("getting_ready")
                     : GetText(_statusKey);
 
-            footer = failed
-                ? GetText("retry")
-                : "DownTrack";
         }
 
-        SetWindowTextW(_readyTitleHwnd, GetText("getting_ready"));
+        SetWindowTextW(_readyTitleHwnd, failed ? GetText("error_title") : GetText("getting_ready"));
         SetWindowTextW(_statusHwnd, status);
-        SetWindowTextW(_languageHwnd, language);
-        SetWindowTextW(_footerHwnd, footer);
+        SetWindowTextW(_languageHwnd, GetLanguageDisplayName());
+        SetWindowTextW(_retryHwnd, GetText("retry"));
 
         SendMessageW(
             _progressHwnd,
-            0x0402,
+            PbmSetPos,
             (nint)Math.Clamp((int)Math.Round(progress), 0, 100),
             0);
 
@@ -1428,12 +1443,6 @@ internal static class Program
             {
                 var id = (ushort)((long)wParam & 0xFFFF);
 
-                if (id == ControlClose)
-                {
-                    DestroyWindow(hwnd);
-                    return nint.Zero;
-                }
-
                 if (id == ControlLanguage)
                 {
                     ShowLanguageMenu(hwnd);
@@ -1448,15 +1457,7 @@ internal static class Program
 
                 if (id is >= 1000 and < 2000)
                 {
-                    var index = id - 1000;
-                    if (index < Languages.Length)
-                    {
-                        _language = Languages[index].Code == "auto"
-                            ? DetectLanguage()
-                            : Languages[index].Code;
-
-                        RefreshControls();
-                    }
+                    SetLanguageFromIndex(id - 1000);
                 }
 
                 return nint.Zero;
@@ -1469,10 +1470,19 @@ internal static class Program
             case WmCtlColorStatic:
                 return HandleStaticColor(wParam, lParam);
 
+            case WmEraseBkgnd:
+            {
+                RECT rect;
+                GetClientRect(hwnd, &rect);
+                FillRect(wParam, &rect, _backgroundBrush);
+                return 1;
+            }
+
             case WmPaint:
             {
                 PAINTSTRUCT ps;
                 var hdc = BeginPaint(hwnd, &ps);
+                PaintInstallerDecorations(hdc);
                 EndPaint(hwnd, &ps);
                 return nint.Zero;
             }
@@ -1501,11 +1511,11 @@ internal static class Program
         }
         else if (childHwnd == _statusHwnd)
         {
-            color = _darkTheme ? 0xFFB7BEC6u : 0xFF555555u;
+            color = _darkTheme ? 0xFFB7BEC6u : 0xFF6B7280u;
         }
-        else if (childHwnd == _subtitleHwnd || childHwnd == _footerHwnd)
+        else if (childHwnd == _retryHwnd)
         {
-            color = _darkTheme ? 0xFF8F969Du : 0xFF777777u;
+            color = 0xFFFFFFFFu;
         }
 
         SetTextColor(hdc, ToColorRef(color));
@@ -1529,6 +1539,31 @@ internal static class Program
         }
     }
 
+    private static void SetLanguageFromIndex(int index)
+    {
+        if (index < 0 || index >= Languages.Length)
+        {
+            return;
+        }
+
+        _language = Languages[index].Code == "auto"
+            ? DetectLanguage()
+            : Languages[index].Code;
+
+        Log("LANGUAGE CHANGED | " + _language);
+        RefreshControls();
+    }
+
+    private static string GetLanguageDisplayName()
+    {
+        var current = Languages.FirstOrDefault(
+            x => x.Code.Equals(_language, StringComparison.OrdinalIgnoreCase));
+
+        return string.IsNullOrWhiteSpace(current.Name)
+            ? "English ⌄"
+            : current.Name + " ⌄";
+    }
+
     private static unsafe void ShowLanguageMenu(nint hwnd)
     {
         var menu = CreatePopupMenu();
@@ -1545,10 +1580,10 @@ internal static class Program
                 AppendMenuW(menu, MFString, (nuint)(1000 + i), item.Name);
             }
 
-            POINT point = new() { X = 320, Y = 54 };
+            POINT point = new() { X = Width - 145, Y = 48 };
             ClientToScreen(hwnd, &point);
 
-            _ = TrackPopupMenu(
+            var command = TrackPopupMenu(
                 menu,
                 TpmReturnCmd | MFRightButton,
                 point.X,
@@ -1556,6 +1591,11 @@ internal static class Program
                 0,
                 hwnd,
                 nint.Zero);
+
+            if (command is >= 1000 and < 2000)
+            {
+                SetLanguageFromIndex((int)command - 1000);
+            }
         }
         finally
         {
