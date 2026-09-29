@@ -1294,7 +1294,7 @@ internal static class Program
         const uint SsCenter = 0x00000001;
 
         _brandHwnd = CreateChild(parent, "STATIC", "", 0, 0, 1, 1, ControlBrand, SsCenter);
-        _titleHwnd = CreateChild(parent, "STATIC", "DownTrack", 90, 76, 320, 30, ControlTitle, SsCenter | SsCenterImage);
+        _titleHwnd = CreateChild(parent, "STATIC", "", 0, 0, 1, 1, ControlTitle, SsCenter);
         _subtitleHwnd = CreateChild(parent, "STATIC", "", 0, 0, 1, 1, ControlSubtitle, 0);
         _readyTitleHwnd = CreateChild(parent, "STATIC", "Getting DownTrack ready...", 35, 126, 430, 34, ControlReadyTitle, SsCenter | SsCenterImage);
 
@@ -1326,7 +1326,7 @@ internal static class Program
         ShowWindow(_footerHwnd, 0);
 
         SendMessageW(_progressHwnd, PbmSetBarColor, 0, (nint)ToColorRef(0xFF6366F1u));
-        SendMessageW(_progressHwnd, PbmSetBkColor, 0, (nint)ToColorRef(0xFFE5E7EBu));
+        SendMessageW(_progressHwnd, PbmSetBkColor, 0, (nint)ToColorRef(_darkTheme ? 0xFF3A3A3Au : 0xFFE5E7EBu));
         SendMessageW(_progressHwnd, PbmSetPos, 0, 0);
         ShowWindow(_retryHwnd, 0);
         return _hwnd;
