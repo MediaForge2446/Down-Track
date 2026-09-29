@@ -1,0 +1,135 @@
+name: Publish DownTrack beta.4
+
+on:
+  push:
+    branches:
+      - 'bootstrap/publish-beta4'
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: v1.0.0-beta.4
+  RELEASE_VERSION: 1.0.0-beta.4
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore DownTrack.sln
+
+      - name: Build
+        run: dotnet build DownTrack.sln -c Release --no-restore -p:Version=$env:RELEASE_VERSION
+        shell: pwsh
+
+      - name: Publish DownTrack
+        run: dotnet publish src/DownTrack.App/DownTrack.App.csproj -c Release -r win-x64 --self-contained false -o publish/DownTrack -p:Version=$env:RELEASE_VERSION
+        shell: pwsh
+
+      - name: Smoke test DownTrack
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'publish/DownTrack/DownTrack.exe'
+          if (-not (Test-Path $exe)) { throw "Published executable not found." }
+          $p = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          try {
+            Start-Sleep -Seconds 5
+            if ($p.HasExited) { throw "DownTrack exited during smoke test with code $($p.ExitCode)." }
+          }
+          finally {
+            if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+          }
+
+      - name: Package DownTrack
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path publish/release | Out-Null
+          Compress-Archive -Path 'publish/DownTrack/*' -DestinationPath 'publish/release/DownTrack-win-x64.zip' -CompressionLevel Fastest
+          $hash = (Get-FileHash 'publish/release/DownTrack-win-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  DownTrack-win-x64.zip" | Set-Content 'publish/release/DownTrack-win-x64.zip.sha256' -Encoding ascii
+          $env:RELEASE_VERSION | Set-Content 'publish/release/DownTrack-version.txt' -Encoding ascii
+
+      - name: Publish WebSetup
+        shell: pwsh
+        run: dotnet publish src/DownTrack.WebSetup/DownTrack.WebSetup.csproj -c Release -r win-x64 -o publish/WebSetup -p:Version=$env:RELEASE_VERSION
+
+      - name: Validate WebSetup
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
+          if (-not (Test-Path $exe)) { throw "WebSetup executable not found." }
+          $files = Get-ChildItem 'publish/WebSetup' -File
+          if ($files.Count -ne 1 -or $files[0].Name -ne 'DownTrack-WebSetup.exe') { throw "WebSetup must publish as one file." }
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  DownTrack-WebSetup.exe" | Set-Content 'publish/release/DownTrack-WebSetup.exe.sha256' -Encoding ascii
+          Write-Host "WebSetup size: $((Get-Item $exe).Length) bytes"
+
+      - name: Smoke test WebSetup
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
+          $p = Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
+          if (-not $p.WaitForExit(10000)) {
+            Stop-Process -Id $p.Id -Force
+            throw "WebSetup smoke test timed out."
+          }
+          if ($p.ExitCode -ne 0) { throw "WebSetup smoke test failed with code $($p.ExitCode)." }
+
+      - name: Create or update GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = @(
+            'publish/release/DownTrack-WebSetup.exe.sha256',
+            'publish/release/DownTrack-win-x64.zip',
+            'publish/release/DownTrack-win-x64.zip.sha256',
+            'publish/release/DownTrack-version.txt',
+            'publish/WebSetup/DownTrack-WebSetup.exe'
+          )
+
+          gh release view $env:RELEASE_TAG 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG $assets --clobber
+          }
+          else {
+            gh release create $env:RELEASE_TAG $assets --title "DownTrack $env:RELEASE_TAG" --generate-notes
+          }
+
+      - name: End-to-end WebSetup install
+        shell: pwsh
+        timeout-minutes: 10
+        run: |
+          $installer = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
+          $p = Start-Process -FilePath $installer -PassThru
+          if (-not $p.WaitForExit(600000)) {
+            Stop-Process -Id $p.Id -Force
+            throw "WebSetup install timed out."
+          }
+          if ($p.ExitCode -ne 0) { throw "WebSetup exited with code $($p.ExitCode)." }
+
+          $installedExe = Join-Path $env:LOCALAPPDATA 'Programs/DownTrack/DownTrack.exe'
+          $versionFile = Join-Path $env:LOCALAPPDATA 'Programs/DownTrack/.downtrack-version'
+          $engineDir = Join-Path $env:LOCALAPPDATA 'DownTrack/bin'
+
+          if (-not (Test-Path $installedExe)) { throw "Installed DownTrack.exe not found." }
+          if (-not (Test-Path $versionFile)) { throw "Installed version marker not found." }
+
+          foreach ($tool in @('yt-dlp.exe','ffmpeg.exe','ffprobe.exe','deno.exe')) {
+            $toolPath = Join-Path $engineDir $tool
+            if (-not (Test-Path $toolPath)) { throw "Media engine tool not found: $toolPath" }
+          }
+
+          $installedVersion = (Get-Content $versionFile -Raw).Trim()
+          if ($installedVersion -ne $env:RELEASE_VERSION) {
+            throw "Installed version marker mismatch: $installedVersion"
+          }
+
+          Get-Process -Name DownTrack -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
