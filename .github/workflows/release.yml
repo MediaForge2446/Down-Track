@@ -165,10 +165,18 @@ jobs:
 
           $installedExe = Join-Path $env:LOCALAPPDATA 'Programs/DownTrack/DownTrack.exe'
           $versionFile = Join-Path $env:LOCALAPPDATA 'Programs/DownTrack/.downtrack-version'
+          $engineDir = Join-Path $env:LOCALAPPDATA 'DownTrack/bin'
           $expected = $env:RELEASE_VERSION
 
           if (-not (Test-Path $installedExe)) {
             throw "Installed DownTrack.exe not found."
+          }
+
+          foreach ($tool in @('yt-dlp.exe', 'ffmpeg.exe', 'ffprobe.exe', 'deno.exe')) {
+            $toolPath = Join-Path $engineDir $tool
+            if (-not (Test-Path $toolPath)) {
+              throw "Installed media engine tool not found: $toolPath"
+            }
           }
 
           if (-not (Test-Path $versionFile)) {
