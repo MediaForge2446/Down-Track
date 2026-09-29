@@ -1,12 +1,15 @@
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO.Compression;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
 namespace DownTrack.WebSetup;
@@ -42,6 +45,8 @@ internal static class Program
     private const uint WmSetFont = 0x0030;
     private const uint PbsSmooth = 0x0001;
     private const uint SsCenterImage = 0x0200;
+    private const uint WmCtlColorStatic = 0x0138;
+    private const uint TransparentBkMode = 1;
     private const uint MFString = 0x00000000;
     private const uint MFRightButton = 0x0002;
     private const uint TpmReturnCmd = 0x0100;
@@ -60,6 +65,15 @@ internal static class Program
     private static readonly string DownloadZip = Path.Combine(InstallRoot, "DownTrack.download.zip");
     private static readonly string DownloadSha = Path.Combine(InstallRoot, "DownTrack.download.sha256");
     private static readonly string RuntimeInstaller = Path.Combine(InstallRoot, "DownTrack.desktop-runtime.exe");
+    private static readonly string UserDataRoot =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DownTrack");
+    private static readonly string EngineDir = Path.Combine(UserDataRoot, "bin");
+    private static readonly string EngineTempDir = Path.Combine(UserDataRoot, ".engine.new");
+    private static readonly string EngineYtDlp = Path.Combine(EngineDir, "yt-dlp.exe");
+    private static readonly string EngineFfmpeg = Path.Combine(EngineDir, "ffmpeg.exe");
+    private static readonly string EngineFfprobe = Path.Combine(EngineDir, "ffprobe.exe");
+    private static readonly string EngineDeno = Path.Combine(EngineDir, "deno.exe");
+    private static readonly string EngineReady = Path.Combine(EngineDir, "engine.ready");
 
     private static readonly HttpClient Http = CreateHttpClient();
 
@@ -403,6 +417,165 @@ internal static class Program
         {
             var parts = Regex.Split(line.Trim(), @"\s+");
             if (parts.Length == 0 || parts[0].Length != 64 || !parts[0].All(Uri.IsHexDigit))
+            {
+                continue;
+            }
+
+            if (parts.Length == 1 ||
+                parts.Skip(1).Any(part => part.TrimStart('*').Equals(fileName, StringComparison.OrdinalIgnoreCase)))
+            {
+                return parts[0];
+            }
+        }
+
+        throw new InvalidDataException("The checksum file did not contain " + fileName + ".");
+    }
+
+    private static bool MediaEngineReady()
+    {
+        return File.Exists(EngineYtDlp) &&
+               File.Exists(EngineFfmpeg) &&
+               File.Exists(EngineFfprobe) &&
+               File.Exists(EngineDeno);
+    }
+
+    private static async Task EnsureMediaEngineAsync()
+    {
+        Directory.CreateDirectory(UserDataRoot);
+        Directory.CreateDirectory(EngineDir);
+
+        if (!File.Exists(EngineYtDlp))
+        {
+            SetStatus("installing", 22);
+            await DownloadVerifiedAssetAsync(
+                "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe",
+                "https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS",
+                EngineYtDlp,
+                "yt-dlp.exe",
+                22,
+                30);
+        }
+
+        if (!File.Exists(EngineFfmpeg) || !File.Exists(EngineFfprobe))
+        {
+            SetStatus("installing", 30);
+            var zip = Path.Combine(UserDataRoot, "DownTrack-ffmpeg.download.zip");
+            try
+            {
+                await DownloadVerifiedAssetAsync(
+                    "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
+                    "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256",
+                    zip,
+                    "ffmpeg-release-essentials.zip",
+                    30,
+                    44);
+
+                SafeDeleteDirectory(EngineTempDir);
+                Directory.CreateDirectory(EngineTempDir);
+                ZipFile.ExtractToDirectory(zip, EngineTempDir, true);
+
+                var sourceFfmpeg = Directory.EnumerateFiles(EngineTempDir, "ffmpeg.exe", SearchOption.AllDirectories).FirstOrDefault();
+                var sourceFfprobe = Directory.EnumerateFiles(EngineTempDir, "ffprobe.exe", SearchOption.AllDirectories).FirstOrDefault();
+                if (sourceFfmpeg is null || sourceFfprobe is null)
+                {
+                    throw new InvalidDataException("The FFmpeg package did not contain ffmpeg.exe and ffprobe.exe.");
+                }
+
+                File.Copy(sourceFfmpeg, EngineFfmpeg, true);
+                File.Copy(sourceFfprobe, EngineFfprobe, true);
+            }
+            finally
+            {
+                SafeDeleteFile(zip);
+                SafeDeleteDirectory(EngineTempDir);
+            }
+        }
+
+        if (!File.Exists(EngineDeno))
+        {
+            SetStatus("installing", 44);
+            var zip = Path.Combine(UserDataRoot, "DownTrack-deno.download.zip");
+            try
+            {
+                await DownloadVerifiedAssetAsync(
+                    "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip",
+                    "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip.sha256sum",
+                    zip,
+                    "deno-x86_64-pc-windows-msvc.zip",
+                    44,
+                    49);
+
+                SafeDeleteDirectory(EngineTempDir);
+                Directory.CreateDirectory(EngineTempDir);
+                ZipFile.ExtractToDirectory(zip, EngineTempDir, true);
+
+                var sourceDeno = Directory.EnumerateFiles(EngineTempDir, "deno.exe", SearchOption.AllDirectories).FirstOrDefault();
+                if (sourceDeno is null)
+                {
+                    throw new InvalidDataException("The Deno package did not contain deno.exe.");
+                }
+
+                File.Copy(sourceDeno, EngineDeno, true);
+            }
+            finally
+            {
+                SafeDeleteFile(zip);
+                SafeDeleteDirectory(EngineTempDir);
+            }
+        }
+
+        if (!MediaEngineReady())
+        {
+            throw new InvalidOperationException("The media engine could not be prepared.");
+        }
+
+        WriteText(EngineReady, DateTimeOffset.UtcNow.ToString("O"));
+        SetProgress(49);
+    }
+
+    private static async Task DownloadVerifiedAssetAsync(
+        string url,
+        string checksumUrl,
+        string destination,
+        string fileName,
+        double progressStart,
+        double progressEnd)
+    {
+        var temp = destination + ".download";
+        try
+        {
+            SafeDeleteFile(temp);
+            await DownloadFileAsync(url, temp, progressStart, progressEnd);
+
+            var expected = await ReadChecksumAsync(checksumUrl, fileName);
+            var actual = await ComputeSha256Async(temp);
+
+            if (!actual.Equals(expected, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException("Checksum validation failed for " + fileName + ".");
+            }
+
+            File.Move(temp, destination, true);
+        }
+        finally
+        {
+            SafeDeleteFile(temp);
+        }
+    }
+
+    private static async Task<string> ReadChecksumAsync(string url, string fileName)
+    {
+        using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+
+        var content = await response.Content.ReadAsStringAsync();
+        foreach (var line in content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = Regex.Split(line.Trim(), @"\s+");
+
+            if (parts.Length == 0 ||
+                parts[0].Length != 64 ||
+                !parts[0].All(Uri.IsHexDigit))
             {
                 continue;
             }
