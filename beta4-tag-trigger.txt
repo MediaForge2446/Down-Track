@@ -1,0 +1,1 @@
+Trigger beta.4 tag creation on the validated main commit.
