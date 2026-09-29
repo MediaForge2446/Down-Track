@@ -131,7 +131,7 @@ public sealed partial class MainWindow : FluentWindow, INotifyPropertyChanged
     void AddFolder(){if(string.IsNullOrWhiteSpace(SelectedRoot))return;var name=Microsoft.VisualBasic.Interaction.InputBox("Folder name","DownTrack","New Folder");if(string.IsNullOrWhiteSpace(name))return;pending.Add(new PendingChange{Type=PendingType.AddFolder,ParentPath=SelectedRoot,DisplayName=name.Trim()});UpdatePending();ShowToast("Folder staged. It will be created when you save changes.");}
     void RenameSelected(){if(SelectedItem==null||string.IsNullOrWhiteSpace(SelectedRoot)||string.IsNullOrWhiteSpace(SelectedItem.Path))return;var name=Microsoft.VisualBasic.Interaction.InputBox("New name","DownTrack",SelectedItem.Name);if(string.IsNullOrWhiteSpace(name)||name==SelectedItem.Name)return;pending.Add(new PendingChange{Type=PendingType.Rename,ParentPath=SelectedRoot,DisplayName=System.IO.Path.GetFileName(SelectedItem.Path),NewName=name.Trim()+System.IO.Path.GetExtension(SelectedItem.Path)});UpdatePending();}
     void DeleteSelected(){if(SelectedItem==null||string.IsNullOrWhiteSpace(SelectedRoot)||string.IsNullOrWhiteSpace(SelectedItem.Path))return;if(System.Windows.MessageBox.Show($"Stage delete of \"{SelectedItem.Name}\"?","DownTrack",System.Windows.MessageBoxButton.YesNo,MessageBoxImage.Warning)!=System.Windows.MessageBoxResult.Yes)return;pending.Add(new PendingChange{Type=PendingType.Delete,ParentPath=SelectedRoot,DisplayName=System.IO.Path.GetFileName(SelectedItem.Path)});UpdatePending();}
-    public async Task ApplyPendingAsync(){foreach(var p in pending.ToList()){try{p.Status="Working";p.Progress=0;OnPropertyChanged(nameof(PendingChanges));if(p.Type==PendingType.AddFolder){Directory.CreateDirectory(System.IO.Path.Combine(p.ParentPath,p.DisplayName));p.Progress=100;}else if(p.Type==PendingType.Rename){File.Move(System.IO.Path.Combine(p.ParentPath,p.DisplayName),System.IO.Path.Combine(p.ParentPath,p.NewName!));p.Progress=100;}else if(p.Type==PendingType.Delete){var x=System.IO.Path.Combine(p.ParentPath,p.DisplayName);if(File.Exists(x))File.Delete(x);else if(Directory.Exists(x))Directory.Delete(x,true);p.Progress=100;}else if(p.Type==PendingType.AddMedia){if(!await EnsureMediaEngineQuietAsync()){p.Status="Error";p.Progress=0;p.OnChanged();ShowToast("Media tools are not ready. Open Settings to check the media engine.");continue;}await DownloadAsync(p);}pending.Remove(p);UpdatePending();ShowToast("Change applied to disk.");}catch(Exception ex){p.Status="Error";p.OnChanged();OnPropertyChanged(nameof(PendingChanges));ShowToast(ex.Message);}}RefreshItems();await SaveStateAsync();}
+    public async Task ApplyPendingAsync(){foreach(var p in pending.ToList()){try{p.Status="Working";p.Progress=0;OnPropertyChanged(nameof(PendingChanges));if(p.Type==PendingType.AddFolder){Directory.CreateDirectory(System.IO.Path.Combine(p.ParentPath,p.DisplayName));p.Progress=100;}else if(p.Type==PendingType.Rename){File.Move(System.IO.Path.Combine(p.ParentPath,p.DisplayName),System.IO.Path.Combine(p.ParentPath,p.NewName!));p.Progress=100;}else if(p.Type==PendingType.Delete){var x=System.IO.Path.Combine(p.ParentPath,p.DisplayName);if(File.Exists(x))File.Delete(x);else if(Directory.Exists(x))Directory.Delete(x,true);p.Progress=100;}else if(p.Type==PendingType.AddMedia){if(!await EnsureMediaEngineQuietAsync(true)){p.Status="Error";p.Progress=0;p.OnChanged();ShowToast("Media tools are not ready. Open Settings to check the media engine.");continue;}await DownloadAsync(p);}pending.Remove(p);UpdatePending();ShowToast("Change applied to disk.");}catch(Exception ex){p.Status="Error";p.OnChanged();OnPropertyChanged(nameof(PendingChanges));ShowToast(ex.Message);}}RefreshItems();await SaveStateAsync();}
     void UpdatePending(){OnPropertyChanged(nameof(PendingVisibility));OnPropertyChanged(nameof(PendingSummary));OnPropertyChanged(nameof(EmptyItemsVisibility));_=SaveStateAsync();RefreshItems();}
 
     async Task DownloadAsync(PendingChange p){var exe=Tool("yt-dlp");if(!File.Exists(exe))throw new FileNotFoundException("yt-dlp.exe is missing from the tools folder.");if(!File.Exists(Tool("ffmpeg")))throw new FileNotFoundException("ffmpeg.exe is missing from the media engine folder.");if(!File.Exists(Tool("deno")))throw new FileNotFoundException("deno.exe is missing from the media engine folder.");Directory.CreateDirectory(p.ParentPath);
@@ -143,24 +143,30 @@ public sealed partial class MainWindow : FluentWindow, INotifyPropertyChanged
         using var proc=new Process{StartInfo=psi};proc.Start();var re=new Regex(@"(\d+(?:\.\d+)?)%");while(!proc.StandardOutput.EndOfStream){var line=await proc.StandardOutput.ReadLineAsync();if(line==null)continue;var m=re.Match(line);if(m.Success&&double.TryParse(m.Groups[1].Value,NumberStyles.Float,CultureInfo.InvariantCulture,out var pct)){p.Progress=Math.Clamp(pct,0,100);p.OnChanged();}}
         await proc.WaitForExitAsync();if(proc.ExitCode!=0){var err=(await proc.StandardError.ReadToEndAsync()).Trim();throw new InvalidOperationException(string.IsNullOrWhiteSpace(err)?"yt-dlp failed.":err);}p.Progress=100;p.Status="Done";p.OnChanged();}
 
-    async Task<bool> EnsureMediaEngineQuietAsync(bool force=false)
+    async Task<bool> EnsureMediaEngineQuietAsync(bool repair=false)
     {
         await engineGate.WaitAsync();
         try
         {
-            if(!force&&HasAllTools())
+            if(HasAllTools())
             {
+                OnPropertyChanged(nameof(EngineSummary));
                 return true;
             }
 
-            await engine.EnsureAsync(null,null,force);
+            if(!repair)
+            {
+                OnPropertyChanged(nameof(EngineSummary));
+                return false;
+            }
+
+            await engine.EnsureAsync(null,null,true);
             OnPropertyChanged(nameof(EngineSummary));
             return HasAllTools();
-        }
-        catch(Exception ex)
+                catch(Exception ex)
         {
             OnPropertyChanged(nameof(EngineSummary));
-            if(force)
+            if(repair)
             {
                 ShowToast("Media engine could not be updated. Check your connection and try again.");
             }
@@ -191,7 +197,7 @@ public sealed partial class MainWindow : FluentWindow, INotifyPropertyChanged
 
     public record LanguageOption(string Code,string Name);
     public sealed class MediaItem : INotifyPropertyChanged
-    {public string Name{get;}public string Path{get;}public string Format{get;}public long SizeBytes{get;}public int Bitrate{get;init;}public string Status{get;init;}="On disk";public string Duration=>"—";public string FormatLabel=>Bitrate>0?$"{Format} · {Bitrate} kbps":Format;public string SizeLabel=>SizeBytes<=0?"—":SizeBytes>1048576?$"{SizeBytes/1048576d:0.#} MB":$"{SizeBytes/1024d:0.#} KB";public System.Windows.Media.Brush StatusBrush=>Status=="Waiting"?Brush("#FFF0D2"):Brush("#DDF6EA");public string StatusLabel=>Status;public MediaItem(string n,string p,string f,long s){Name=n;Path=p;Format=f;SizeBytes=s;}public event PropertyChangedEventHandler? PropertyChanged;}
+    {public string Name{get;}public string Path{get;}public string Format{get;}public long SizeBytes{get;}public int Bitrate{get;init;}public string Status{get;init;}="On disk";public string Duration=>"—";public string FormatLabel=>Bitrate>0?$"{Format} · {Bitrate} kbps":Format;public string SizeLabel=>SizeBytes<=0?"—":SizeBytes>1048576?$"{SizeBytes/1048576d:0.#} MB":$"{SizeBytes/1024d:0.#} KB";public System.Windows.Media.Brush StatusBrush => (System.Windows.Media.Brush)System.Windows.Application.Current.Resources[Status=="Waiting"?"PendingSurface":"SavedSurface"];public string StatusLabel=>Status;public MediaItem(string n,string p,string f,long s){Name=n;Path=p;Format=f;SizeBytes=s;}public event PropertyChangedEventHandler? PropertyChanged;}
     public enum PendingType{AddMedia,AddFolder,Rename,Delete}
     public sealed class PendingChange : INotifyPropertyChanged
     {public PendingType Type{get;set;}public string ParentPath{get;set;}="";public string DisplayName{get;set;}="";public string? NewName{get;set;}public string? SourceUrl{get;set;}public string Format{get;set;}="MP3";public int Bitrate{get;set;}=128;public string Status{get;set;}="Waiting";double progress;public double Progress{get=>progress;set{progress=value;OnChanged();}}public bool IsPlaylist{get;set;}public event PropertyChangedEventHandler? PropertyChanged;public void OnChanged()=>PropertyChanged?.Invoke(this,new PropertyChangedEventArgs(null));}
