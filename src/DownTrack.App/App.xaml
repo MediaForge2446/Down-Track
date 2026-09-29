@@ -18,6 +18,15 @@
       <SolidColorBrush x:Key="Text" Color="#1A2230" />
       <SolidColorBrush x:Key="Muted" Color="#667185" />
       <SolidColorBrush x:Key="Accent" Color="#5B5BD6" />
+      <SolidColorBrush x:Key="AccentForeground" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="SideBarBackground" Color="#F1F3F7" />
+      <SolidColorBrush x:Key="SearchBackground" Color="#F4F5F8" />
+      <SolidColorBrush x:Key="IconBackground" Color="#ECEEF5" />
+      <SolidColorBrush x:Key="AccentSoft" Color="#EAEAFF" />
+      <SolidColorBrush x:Key="PendingBackground" Color="#FFF8EA" />
+      <SolidColorBrush x:Key="PendingBorder" Color="#F0D49F" />
+      <SolidColorBrush x:Key="StatusSavedBrush" Color="#10B981" />
+      <SolidColorBrush x:Key="StatusPendingBrush" Color="#F59E0B" />
       <SolidColorBrush x:Key="PendingText" Color="#9A6700" />
 
       <Style TargetType="TextBlock">
