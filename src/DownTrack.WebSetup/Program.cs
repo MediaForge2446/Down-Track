@@ -1353,8 +1353,6 @@ internal static class Program
 
     private static nint CreateChildControls(nint parent)
     {
-        const uint WsChild = 0x40000000;
-        const uint WsVisible = 0x10000000;
         const uint SsCenter = 0x00000001;
         const uint BsPushButton = 0x00000000;
 
