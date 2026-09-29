@@ -1,1 +1,1 @@
-Trigger final beta.6 publisher.
+Trigger beta.6 final publisher after REST release fix.
