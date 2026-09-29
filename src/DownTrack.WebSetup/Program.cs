@@ -501,41 +501,63 @@ internal static class Program
 
     private static async Task DownloadFileAsync(string url, string destination, double start, double end)
     {
-        using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-        response.EnsureSuccessStatusCode();
+        var started = Stopwatch.GetTimestamp();
+        Log("DOWNLOAD START | url=" + url + " | destination=" + destination);
 
-        var length = response.Content.Headers.ContentLength;
-        await using var input = await response.Content.ReadAsStreamAsync();
-        await using var output = new FileStream(
-            destination,
-            FileMode.Create,
-            FileAccess.Write,
-            FileShare.None,
-            64 * 1024,
-            useAsync: true);
-
-        var buffer = new byte[64 * 1024];
-        long total = 0;
-        int read;
-
-        while ((read = await input.ReadAsync(buffer)) > 0)
+        try
         {
-            await output.WriteAsync(buffer.AsMemory(0, read));
-            total += read;
+            using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            Log("DOWNLOAD RESPONSE | url=" + url + " | status=" + (int)response.StatusCode + " " + response.ReasonPhrase + " | length=" + (response.Content.Headers.ContentLength?.ToString() ?? "unknown"));
+            response.EnsureSuccessStatusCode();
 
-            if (length is > 0)
+            var length = response.Content.Headers.ContentLength;
+            await using var input = await response.Content.ReadAsStreamAsync();
+            await using var output = new FileStream(
+                destination,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                64 * 1024,
+                useAsync: true);
+
+            var buffer = new byte[64 * 1024];
+            long total = 0;
+
+            while (true)
             {
-                var fraction = Math.Clamp((double)total / length.Value, 0, 1);
-                SetProgress(start + ((end - start) * fraction));
-            }
-        }
+                var read = await input.ReadAsync(buffer);
+                if (read <= 0)
+                {
+                    break;
+                }
 
-        SetProgress(end);
+                await output.WriteAsync(buffer.AsMemory(0, read));
+                total += read;
+
+                if (length is > 0)
+                {
+                    var fraction = Math.Clamp((double)total / length.Value, 0, 1);
+                    SetProgress(start + ((end - start) * fraction));
+                }
+            }
+
+            SetProgress(end);
+            Log("DOWNLOAD COMPLETE | url=" + url + " | elapsed=" + Stopwatch.GetElapsedTime(started));
+        }
+        catch (Exception ex)
+        {
+            LogException("DOWNLOAD FAILED | url=" + url, ex);
+            throw;
+        }
     }
 
     private static async Task<string> ReadExpectedShaAsync(string url)
     {
+        var started = Stopwatch.GetTimestamp();
+        Log("HASH START | url=" + url);
+
         using var response = await Http.GetAsync(url);
+        Log("HASH RESPONSE | url=" + url + " | status=" + (int)response.StatusCode + " " + response.ReasonPhrase);
         response.EnsureSuccessStatusCode();
 
         var content = await response.Content.ReadAsStringAsync();
@@ -545,6 +567,7 @@ internal static class Program
         {
             if (token.Length == 64 && token.All(Uri.IsHexDigit))
             {
+                Log("HASH EXPECTED | sha256=" + token + " | elapsed=" + Stopwatch.GetElapsedTime(started));
                 return token;
             }
         }
@@ -1566,6 +1589,61 @@ internal static class Program
 
         var region = CreateRoundRectRgn(0, 0, Width + 1, Height + 1, 24, 24);
         SetWindowRgn(hwnd, region, true);
+    }
+
+    private static void InitializeInstallerLog()
+    {
+        try
+        {
+            Directory.CreateDirectory(UserDataRoot);
+            ActiveLogPath = InstallerLogPath;
+            Log("============================================================");
+            Log("DownTrack WebSetup installer log");
+            Log("============================================================");
+        }
+        catch
+        {
+            try
+            {
+                ActiveLogPath = Path.Combine(Path.GetTempPath(), "DownTrack-installer.log");
+                Log("Log fallback enabled.");
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private static void Log(string message)
+    {
+        try
+        {
+            lock (LogGate)
+            {
+                File.AppendAllText(
+                    ActiveLogPath,
+                    $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff zzz}] {message}{Environment.NewLine}",
+                    new UTF8Encoding(false));
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static void LogException(string context, Exception ex)
+    {
+        var win32 = ex as Win32Exception ?? ex.InnerException as Win32Exception;
+        var code = win32?.NativeErrorCode.ToString(CultureInfo.InvariantCulture) ?? "n/a";
+        Log(context + " | type=" + ex.GetType().FullName + " | hresult=0x" + ex.HResult.ToString("X8") + " | win32=" + code + " | message=" + ex.Message);
+        if (ex.InnerException is not null)
+        {
+            Log("INNER | type=" + ex.InnerException.GetType().FullName + " | hresult=0x" + ex.InnerException.HResult.ToString("X8") + " | message=" + ex.InnerException.Message);
+        }
+        if (!string.IsNullOrWhiteSpace(ex.StackTrace))
+        {
+            Log("STACK | " + ex.StackTrace);
+        }
     }
 
     private static void WriteText(string path, string content)
