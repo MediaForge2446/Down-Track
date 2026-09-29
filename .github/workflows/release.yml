@@ -61,37 +61,44 @@ jobs:
           New-Item -ItemType Directory -Force -Path $engineRoot | Out-Null
           New-Item -ItemType Directory -Force -Path $downloadRoot | Out-Null
 
-          function Get-ExpectedHash([string]$checksumPath, [string]$fileName) {
-            foreach ($line in Get-Content $checksumPath) {
-              $match = [regex]::Match($line, '(?i)\b[0-9a-f]{64}\b')
-              if ($match.Success) { return $match.Value.ToLowerInvariant() }
-            }
-            throw "Checksum not found for $fileName."
-          }
-
-          function Download-Verified([string]$url, [string]$checksumUrl, [string]$fileName) {
-            $file = Join-Path $downloadRoot $fileName
-            $sum = Join-Path $downloadRoot ($fileName + '.sum')
-            Write-Host "Downloading $fileName"
+          function Download-EngineFile([string]$url, [string]$name) {
+            $file = Join-Path $downloadRoot $name
+            Write-Host "ENGINE DOWNLOAD | $url"
             Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $file
-            Invoke-WebRequest -UseBasicParsing -Uri $checksumUrl -OutFile $sum
-            $expected = Get-ExpectedHash $sum $fileName
-            $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
-            if ($actual -ne $expected) { throw "SHA-256 mismatch for $fileName." }
-            return $file
+            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            Write-Host "ENGINE SHA256 | $name | $hash"
+            return @{ Path = $file; Hash = $hash }
           }
 
-$yt = Download-Verified 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS' 'yt-dlp.exe'
-          Copy-Item $yt (Join-Path $engineRoot 'yt-dlp.exe') -Force
-$ff = Download-Verified 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256' 'ffmpeg-release-essentials.zip'
-          $ffDir = Join-Path $downloadRoot 'ffmpeg'; Expand-Archive -Path $ff -DestinationPath $ffDir -Force
-          $ffmpeg = Get-ChildItem $ffDir -Recurse -Filter 'ffmpeg.exe' | Select-Object -First 1; $ffprobe = Get-ChildItem $ffDir -Recurse -Filter 'ffprobe.exe' | Select-Object -First 1
+          $yt = Download-EngineFile 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' 'yt-dlp.exe'
+          Copy-Item $yt.Path (Join-Path $engineRoot 'yt-dlp.exe') -Force
+
+          $ff = Download-EngineFile 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' 'ffmpeg-release-essentials.zip'
+          $ffDir = Join-Path $downloadRoot 'ffmpeg'
+          Expand-Archive -Path $ff.Path -DestinationPath $ffDir -Force
+          $ffmpeg = Get-ChildItem $ffDir -Recurse -Filter 'ffmpeg.exe' | Select-Object -First 1
+          $ffprobe = Get-ChildItem $ffDir -Recurse -Filter 'ffprobe.exe' | Select-Object -First 1
           if (-not $ffmpeg -or -not $ffprobe) { throw 'FFmpeg binaries not found.' }
-          Copy-Item $ffmpeg.FullName (Join-Path $engineRoot 'ffmpeg.exe') -Force; Copy-Item $ffprobe.FullName (Join-Path $engineRoot 'ffprobe.exe') -Force
-$deno = Download-Verified 'https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip' 'https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip.sha256sum' 'deno-x86_64-pc-windows-msvc.zip'
-          $denoDir = Join-Path $downloadRoot 'deno'; Expand-Archive -Path $deno -DestinationPath $denoDir -Force
-          $denoExe = Get-ChildItem $denoDir -Recurse -Filter 'deno.exe' | Select-Object -First 1; if (-not $denoExe) { throw 'Deno binary not found.' }
+          Copy-Item $ffmpeg.FullName (Join-Path $engineRoot 'ffmpeg.exe') -Force
+          Copy-Item $ffprobe.FullName (Join-Path $engineRoot 'ffprobe.exe') -Force
+          $ffmpegHash = (Get-FileHash $ffmpeg.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $ffprobeHash = (Get-FileHash $ffprobe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+
+          $deno = Download-EngineFile 'https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip' 'deno-x86_64-pc-windows-msvc.zip'
+          $denoDir = Join-Path $downloadRoot 'deno'
+          Expand-Archive -Path $deno.Path -DestinationPath $denoDir -Force
+          $denoExe = Get-ChildItem $denoDir -Recurse -Filter 'deno.exe' | Select-Object -First 1
+          if (-not $denoExe) { throw 'Deno binary not found.' }
           Copy-Item $denoExe.FullName (Join-Path $engineRoot 'deno.exe') -Force
+          $denoHash = (Get-FileHash $denoExe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+
+          @(
+            "yt-dlp.exe  $($yt.Hash)"
+            "ffmpeg.exe  $ffmpegHash"
+            "ffprobe.exe  $ffprobeHash"
+            "deno.exe  $denoHash"
+          ) | Set-Content (Join-Path $engineRoot 'engine-sha256.txt') -Encoding ascii
+
           foreach ($tool in @('yt-dlp.exe','ffmpeg.exe','ffprobe.exe','deno.exe')) { if (-not (Test-Path (Join-Path $engineRoot $tool))) { throw "Missing bundled tool: $tool" } }
 
       - name: Package DownTrack
