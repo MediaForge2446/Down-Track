@@ -4,7 +4,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Net.Http;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
@@ -116,8 +115,11 @@ public sealed class EngineSetupService
             await using var verifyStream = File.OpenRead(temp);
             var actual = Convert.ToHexString(await sha.ComputeHashAsync(verifyStream, cancellationToken)).ToLowerInvariant();
             var checksums = await http.GetStringAsync(checksumUrl, cancellationToken);
-            var match = Regex.Match(checksums, $@"(?i)([a-f0-9]{{64}})s+*?{Regex.Escape(fileName)}(?:s|$)");
-            if (!match.Success || !string.Equals(actual, match.Groups[1].Value, StringComparison.OrdinalIgnoreCase))
+            var match = checksums.Split("\r\n", "\n", StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => Regex.Split(line.Trim(), @"\s+"))
+                .Where(parts => parts.Length >= 1 && parts[0].Length == 64 && parts[0].All(Uri.IsHexDigit))
+                .FirstOrDefault(parts => parts.Length == 1 || parts.Skip(1).Any(x => x.TrimStart('*').Equals(fileName, StringComparison.OrdinalIgnoreCase)));
+            if (match is null || !string.Equals(actual, match[0], StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"Checksum verification failed for {fileName}.");
 
             File.Move(temp, destination, true);
