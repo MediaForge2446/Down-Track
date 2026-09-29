@@ -1,0 +1,28 @@
+name: Create DownTrack beta.4 tag
+
+on:
+  push:
+    branches:
+      - 'bootstrap/create-beta4-tag'
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create beta.4 tag on validated main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v1.0.0-beta.4
+          TARGET: c0edc01d224bef4690b8484415877962702adbd1
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" "$TARGET" -m "DownTrack $TAG"
+          git push origin "refs/tags/$TAG"
