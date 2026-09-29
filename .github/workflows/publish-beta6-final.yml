@@ -62,11 +62,9 @@ jobs:
 
           function Get-Hash([string]$path, [string]$name) {
             foreach ($line in Get-Content $path) {
-              $parts = $line.Trim() -split '\s+'
-              if ($parts.Count -ge 1 -and $parts[0].Length -eq 64 -and $parts[0] -match '^[0-9a-fA-F]{64}$') {
-                if ($parts.Count -eq 1 -or ($parts[1..($parts.Count - 1)] -replace '^\*','') -contains $name) {
-                  return $parts[0].ToLowerInvariant()
-                }
+              $match = [regex]::Match($line, '(?i)\b[0-9a-f]{64}\b')
+              if ($match.Success) {
+                return $match.Value.ToLowerInvariant()
               }
             }
             throw "Checksum not found for $name."
