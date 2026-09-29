@@ -38,6 +38,10 @@ internal static class Program
     private const uint WsExAppWindow = 0x00040000;
     private const uint CsHRedraw = 0x0002;
     private const uint CsVRedraw = 0x0001;
+    private const int WhiteBrush = 0;
+    private const uint WmSetFont = 0x0030;
+    private const uint PbsSmooth = 0x0001;
+    private const uint SsCenterImage = 0x0200;
     private const uint MFString = 0x00000000;
     private const uint MFRightButton = 0x0002;
     private const uint TpmReturnCmd = 0x0100;
@@ -1100,9 +1104,11 @@ internal static class Program
     private const int ControlProgress = 2007;
     private const int ControlFooter = 2008;
     private const int ControlRetry = 2009;
+    private const int ControlReadyTitle = 2010;
 
     private static nint _brandHwnd;
     private static nint _titleHwnd;
+    private static nint _readyTitleHwnd;
     private static nint _subtitleHwnd;
     private static nint _languageHwnd;
     private static nint _closeHwnd;
@@ -1113,7 +1119,9 @@ internal static class Program
     private static nint _backgroundBrush;
     private static nint _accentBrush;
     private static nint _mutedBrush;
-    private static nint _uiFont;
+    private static nint _titleFont;
+    private static nint _bodyFont;
+    private static nint _smallFont;
 
     private static unsafe bool CreateMainWindow()
     {
@@ -1128,7 +1136,7 @@ internal static class Program
                 lpfnWndProc = &WindowProc,
                 hInstance = hInstance,
                 hCursor = LoadCursorW(nint.Zero, new nint(32512)),
-                hbrBackground = GetSysColorBrush(5),
+                hbrBackground = GetStockObject(WhiteBrush),
                 lpszClassName = classNamePtr
             };
 
@@ -1160,11 +1168,6 @@ internal static class Program
             return false;
         }
 
-        _backgroundBrush = CreateSolidBrush(ToColorRef(0xFFF8F9FC));
-        _accentBrush = CreateSolidBrush(ToColorRef(0xFF6659E8));
-        _mutedBrush = CreateSolidBrush(ToColorRef(0xFFF8F9FC));
-        _uiFont = GetStockObject(17);
-
         SetRoundCorners(_hwnd);
         CreateChildControls(_hwnd);
         RefreshControls();
@@ -1181,29 +1184,39 @@ internal static class Program
         _brandHwnd = CreateChild(parent, "STATIC", "D", 34, 24, 46, 42, ControlBrand, SsCenter);
         _titleHwnd = CreateChild(parent, "STATIC", "DownTrack", 92, 22, 190, 26, ControlTitle, 0);
         _subtitleHwnd = CreateChild(parent, "STATIC", "Web Setup", 94, 47, 170, 18, ControlSubtitle, 0);
+        _readyTitleHwnd = CreateChild(parent, "STATIC", "Getting DownTrack ready…", 32, 98, 396, 28, ControlReadyTitle, SsCenter | SsCenterImage);
 
         _languageHwnd = CreateChild(parent, "BUTTON", "EN", 320, 22, 66, 32, ControlLanguage, BsPushButton);
         _closeHwnd = CreateChild(parent, "BUTTON", "×", 398, 18, 40, 36, ControlClose, BsPushButton);
 
-        _statusHwnd = CreateChild(parent, "STATIC", "", 32, 112, 396, 46, ControlStatus, SsCenter);
-        _progressHwnd = CreateChild(parent, "msctls_progress32", "", 32, 174, 396, 10, ControlProgress, 0);
-        _footerHwnd = CreateChild(parent, "STATIC", "DownTrack", 32, 268, 396, 22, ControlFooter, SsCenter);
-        _retryHwnd = CreateChild(parent, "BUTTON", "Try again", 155, 224, 150, 40, ControlRetry, BsPushButton);
+        _statusHwnd = CreateChild(parent, "STATIC", "", 32, 130, 396, 24, ControlStatus, SsCenter | SsCenterImage);
+        _progressHwnd = CreateChild(parent, "msctls_progress32", "", 32, 174, 396, 8, ControlProgress, PbsSmooth);
+        _footerHwnd = CreateChild(parent, "STATIC", "DownTrack", 32, 270, 396, 20, ControlFooter, SsCenter | SsCenterImage);
+        _retryHwnd = CreateChild(parent, "BUTTON", "Try again", 155, 216, 150, 38, ControlRetry, BsPushButton);
 
         SetWindowTheme(_languageHwnd, "Explorer", null);
         SetWindowTheme(_closeHwnd, "Explorer", null);
         SetWindowTheme(_retryHwnd, "Explorer", null);
         SetWindowTheme(_progressHwnd, "Explorer", null);
 
-        ApplyFont(_brandHwnd);
-        ApplyFont(_titleHwnd);
-        ApplyFont(_subtitleHwnd);
-        ApplyFont(_languageHwnd);
-        ApplyFont(_closeHwnd);
-        ApplyFont(_statusHwnd);
-        ApplyFont(_progressHwnd);
-        ApplyFont(_footerHwnd);
-        ApplyFont(_retryHwnd);
+        var dpi = (int)GetDpiForWindow(_hwnd);
+        _titleFont = CreateUiFont(14, 600, dpi);
+        _bodyFont = CreateUiFont(10.5f, 400, dpi);
+        _smallFont = CreateUiFont(9.5f, 400, dpi);
+
+        ApplyFont(_brandHwnd, _titleFont);
+        ApplyFont(_titleHwnd, _titleFont);
+        ApplyFont(_subtitleHwnd, _smallFont);
+        ApplyFont(_readyTitleHwnd, _titleFont);
+        ApplyFont(_languageHwnd, _bodyFont);
+        ApplyFont(_closeHwnd, _bodyFont);
+        ApplyFont(_statusHwnd, _smallFont);
+        ApplyFont(_progressHwnd, _bodyFont);
+        ApplyFont(_footerHwnd, _smallFont);
+        ApplyFont(_retryHwnd, _bodyFont);
+
+        EnableWindow(_statusHwnd, 0);
+        EnableWindow(_footerHwnd, 0);
 
         SendMessageW(_progressHwnd, 0x0401, 0, 100);
         ShowWindow(_retryHwnd, 0);
@@ -1239,11 +1252,35 @@ internal static class Program
             nint.Zero);
     }
 
-    private static void ApplyFont(nint hwnd)
+    private static void ApplyFont(nint hwnd, nint font)
     {
-        if (hwnd != nint.Zero)
+        if (hwnd != nint.Zero && font != nint.Zero)
         {
-            SendMessageW(hwnd, 0x0030, _uiFont, 1);
+            SendMessageW(hwnd, WmSetFont, font, 1);
+        }
+    }
+
+    private static unsafe nint CreateUiFont(float pointSize, int weight, int dpi)
+    {
+        var height = -Math.Max(1, (int)Math.Round(pointSize * dpi / 72.0));
+
+        fixed (char* face = "Segoe UI Variable Text")
+        {
+            return CreateFontW(
+                height,
+                0,
+                0,
+                0,
+                weight,
+                0,
+                0,
+                0,
+                1,
+                0,
+                0,
+                5,
+                0,
+                face);
         }
     }
 
@@ -1280,6 +1317,7 @@ internal static class Program
                 : "DownTrack";
         }
 
+        SetWindowTextW(_readyTitleHwnd, GetText("getting_ready"));
         SetWindowTextW(_statusHwnd, status);
         SetWindowTextW(_languageHwnd, language);
         SetWindowTextW(_footerHwnd, footer);
@@ -1366,6 +1404,9 @@ internal static class Program
             }
 
             case WmDestroy:
+                if (_titleFont != nint.Zero) { DeleteObject(_titleFont); _titleFont = nint.Zero; }
+                if (_bodyFont != nint.Zero) { DeleteObject(_bodyFont); _bodyFont = nint.Zero; }
+                if (_smallFont != nint.Zero) { DeleteObject(_smallFont); _smallFont = nint.Zero; }
                 PostQuitMessage(0);
                 return nint.Zero;
         }
@@ -1655,6 +1696,9 @@ internal static class Program
     private static extern int DestroyWindow(nint hWnd);
 
     [DllImport("user32.dll")]
+    private static extern int EnableWindow(nint hWnd, int bEnable);
+
+    [DllImport("user32.dll")]
     private static extern int ShowWindow(nint hWnd, int nCmdShow);
 
     [DllImport("user32.dll")]
@@ -1678,6 +1722,9 @@ internal static class Program
 
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int nIndex);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(nint hWnd);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern nint LoadCursorW(
