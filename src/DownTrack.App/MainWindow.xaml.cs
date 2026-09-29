@@ -116,7 +116,13 @@ public sealed partial class MainWindow : FluentWindow, INotifyPropertyChanged
         r["AccentSoft"]=Brush(dark?"#323255":"#EAEAFF");
         r["PendingBackground"]=Brush(dark?"#352B18":"#FFF8EA");
         r["PendingBorder"]=Brush(dark?"#6A5526":"#F0D49F");
+        r["PendingSurface"]=Brush(dark?"#4A3A1C":"#FFF0D2");
+        r["SavedSurface"]=Brush(dark?"#183B2A":"#DDF6EA");
         r["PendingText"]=Brush(dark?"#F4C86A":"#9A6700");
+        r["OverlayScrim"]=Brush(dark?"#A8000000":"#660D1320");
+        r["ModalSurface"]=Brush(dark?"#252831":"#F4F5FA");
+        r["ToastSurface"]=Brush(dark?"#F0F2F5":"#20242B");
+        r["AccentForeground"]=Brush("#FFFFFF");
         OnPropertyChanged(nameof(SystemTheme));
         OnPropertyChanged(nameof(LightTheme));
         OnPropertyChanged(nameof(DarkTheme));
