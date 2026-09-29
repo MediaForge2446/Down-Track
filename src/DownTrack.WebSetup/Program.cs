@@ -247,9 +247,12 @@ internal static class Program
     {
         if (HasDesktopRuntime8())
         {
+            Log("RUNTIME CHECK | Windows Desktop Runtime 8 detected.");
             SetProgress(18);
             return;
         }
+
+        Log("RUNTIME CHECK | Windows Desktop Runtime 8 missing.");
 
         Directory.CreateDirectory(InstallRoot);
         SafeDeleteFile(RuntimeInstaller);
@@ -270,6 +273,7 @@ internal static class Program
         using var process = Process.Start(psi) ??
             throw new InvalidOperationException("The .NET Desktop Runtime installer could not start.");
         await process.WaitForExitAsync();
+        Log("RUNTIME INSTALL EXIT | code=" + process.ExitCode);
 
         if (process.ExitCode != 0 && process.ExitCode != 3010)
         {
@@ -312,6 +316,7 @@ internal static class Program
 
     private static async Task<string?> GetLatestVersionAsync(CancellationToken cancellationToken)
     {
+        Log("VERSION CHECK START | url=" + LatestVersionUrl);
         try
         {
             using var response = await Http.GetAsync(
@@ -319,12 +324,15 @@ internal static class Program
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
 
+            Log("VERSION RESPONSE | url=" + LatestVersionUrl + " | status=" + (int)response.StatusCode + " " + response.ReasonPhrase);
+
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync(cancellationToken);
                 var version = NormalizeVersion(content);
                 if (!string.IsNullOrWhiteSpace(version))
                 {
+                    Log("VERSION RESOLVED | version=" + version);
                     return version;
                 }
             }
@@ -334,7 +342,9 @@ internal static class Program
             // Fallback below uses the redirect target of the direct asset URL.
         }
 
-        return await GetVersionFromRedirectAsync(cancellationToken);
+        var redirectVersion = await GetVersionFromRedirectAsync(cancellationToken);
+        Log("VERSION REDIRECT RESOLVED | version=" + (redirectVersion ?? "unknown"));
+        return redirectVersion;
     }
 
     private static async Task<string?> GetVersionFromRedirectAsync(CancellationToken cancellationToken)
@@ -359,6 +369,8 @@ internal static class Program
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
+
+            Log("VERSION REDIRECT | status=" + (int)response.StatusCode + " | uri=" + uri + " | location=" + (response.Headers.Location?.ToString() ?? ""));
 
             if ((int)response.StatusCode is >= 300 and < 400 &&
                 response.Headers.Location is not null)
