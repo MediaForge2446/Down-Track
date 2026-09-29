@@ -1,1 +1,1 @@
-Trigger beta.6 final publisher after REST release fix.
+Retrigger beta.6 publisher with checkout-authenticated release publishing.
