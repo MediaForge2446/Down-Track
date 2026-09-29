@@ -1,0 +1,39 @@
+name: DownTrack engine source preflight
+
+on:
+  push:
+    branches:
+      - 'bootstrap/engine-preflight'
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check yt-dlp release and checksum
+        shell: bash
+        run: |
+          curl -fsSL --max-time 45 -o /tmp/yt-dlp.exe https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe
+          curl -fsSL --max-time 45 -o /tmp/SHA2-256SUMS https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS
+          test -s /tmp/yt-dlp.exe
+          grep -E "([a-fA-F0-9]{64}).*yt-dlp.exe" /tmp/SHA2-256SUMS
+
+      - name: Check FFmpeg release and checksum
+        shell: bash
+        run: |
+          curl -fsSL --max-time 60 -o /tmp/ffmpeg.zip.sha256 https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256
+          curl -fsSL --max-time 120 -o /tmp/ffmpeg.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+          test -s /tmp/ffmpeg.zip
+          test -s /tmp/ffmpeg.zip.sha256
+          head -c 128 /tmp/ffmpeg.zip.sha256
+
+      - name: Check Deno release and checksum
+        shell: bash
+        run: |
+          curl -fsSL --max-time 45 -o /tmp/deno.zip.sha256sum https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip.sha256sum
+          curl -fsSL --max-time 90 -o /tmp/deno.zip https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip
+          test -s /tmp/deno.zip
+          test -s /tmp/deno.zip.sha256sum
+          head -c 128 /tmp/deno.zip.sha256sum
