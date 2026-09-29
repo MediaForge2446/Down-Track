@@ -15,10 +15,13 @@ concurrency:
 jobs:
   release:
     runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
@@ -27,47 +30,28 @@ jobs:
         run: |
           $tag = $env:GITHUB_REF_NAME
           $version = $tag.TrimStart('v')
-          if ($version -notmatch '^\d+\.\d+\.\d+([\-+].*)?$') {
-            throw "Release version must look like v1.2.3 or v1.2.3-beta.1."
-          }
-
-          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          Write-Host "Building DownTrack version $version from $env:GITHUB_REF_TYPE $env:GITHUB_REF_NAME"
+          if ($version -notmatch '^\d+\.\d+\.\d+([\-+].*)?$') { throw "Invalid release version: $tag" }
+          "RELEASE_TAG=$tag" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "RELEASE_VERSION=$version" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Restore
         run: dotnet restore DownTrack.sln
 
       - name: Build
         shell: pwsh
-        run: |
-          dotnet build DownTrack.sln -c Release --no-restore -p:Version=$env:RELEASE_VERSION
+        run: dotnet build DownTrack.sln -c Release --no-restore -p:Version=$env:RELEASE_VERSION
 
       - name: Publish DownTrack
         shell: pwsh
-        run: |
-          dotnet publish src/DownTrack.App/DownTrack.App.csproj -c Release -r win-x64 --self-contained false -o publish/DownTrack -p:Version=$env:RELEASE_VERSION
+        run: dotnet publish src/DownTrack.App/DownTrack.App.csproj -c Release -r win-x64 --self-contained false -o publish/DownTrack -p:Version=$env:RELEASE_VERSION
 
       - name: Smoke test DownTrack
         shell: pwsh
         run: |
           $exe = Join-Path $PWD 'publish/DownTrack/DownTrack.exe'
-          if (-not (Test-Path $exe)) {
-            throw "Published executable not found: $exe"
-          }
-
-          $process = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
-          try {
-            Start-Sleep -Seconds 5
-            if ($process.HasExited) {
-              throw "DownTrack exited during smoke test with code $($process.ExitCode)."
-            }
-          }
-          finally {
-            if (-not $process.HasExited) {
-              Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-            }
-          }
+          if (-not (Test-Path $exe)) { throw 'Published DownTrack.exe not found.' }
+          $p = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          try { Start-Sleep -Seconds 5; if ($p.HasExited) { throw "DownTrack exited during smoke test with code $($p.ExitCode)." } } finally { if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue } }
 
       - name: Prepare bundled media engine
         shell: pwsh
@@ -79,550 +63,84 @@ jobs:
 
           function Get-ExpectedHash([string]$checksumPath, [string]$fileName) {
             foreach ($line in Get-Content $checksumPath) {
-              $parts = $line.Trim() -split '\s+'
-              if ($parts.Count -ge 1 -and $parts[0].Length -eq 64 -and $parts[0] -match '^[0-9a-fA-F]{64}        run: |
-          New-Item -ItemType Directory -Force -Path publish/release | Out-Null
-
-          Compress-Archive -Path 'publish/DownTrack/*' -DestinationPath 'publish/release/DownTrack-win-x64.zip' -CompressionLevel Fastest
-          $zipHash = (Get-FileHash 'publish/release/DownTrack-win-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$zipHash  DownTrack-win-x64.zip" | Set-Content 'publish/release/DownTrack-win-x64.zip.sha256' -Encoding ascii
-
-          $version = $env:RELEASE_VERSION
-          $version | Set-Content 'publish/release/DownTrack-version.txt' -Encoding ascii
-
-      - name: Publish WebSetup
-        shell: pwsh
-        run: |
-          dotnet publish src/DownTrack.WebSetup/DownTrack.WebSetup.csproj -c Release -r win-x64 -o publish/WebSetup -p:Version=$env:RELEASE_VERSION
-
-      - name: Validate WebSetup
-        shell: pwsh
-        run: |
-          $exe = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
-          if (-not (Test-Path $exe)) {
-            throw "WebSetup executable not found: $exe"
-          }
-
-          $files = Get-ChildItem 'publish/WebSetup' -File
-          $files | ForEach-Object {
-            Write-Host "WebSetup output: $($_.Name) ($($_.Length) bytes)"
-          }
-
-          if ($files.Count -ne 1 -or $files[0].Name -ne 'DownTrack-WebSetup.exe') {
-            throw "WebSetup must publish as one file."
-          }
-
-          $sizeMb = [Math]::Round((Get-Item $exe).Length / 1MB, 2)
-          Write-Host "WebSetup size: $sizeMb MB"
-
-          $bundle = Join-Path $PWD 'publish/DownTrack/bin'
-          foreach ($tool in @('yt-dlp.exe','ffmpeg.exe','ffprobe.exe','deno.exe')) {
-            if (-not (Test-Path (Join-Path $bundle $tool))) {
-              throw "Release bundle is missing media engine file: $tool"
+              $match = [regex]::Match($line, '(?i)\b[0-9a-f]{64}\b')
+              if ($match.Success) { return $match.Value.ToLowerInvariant() }
             }
-          }
-
-          $bundle = Join-Path $PWD 'publish/DownTrack/bin'
-          foreach ($tool in @('yt-dlp.exe','ffmpeg.exe','ffprobe.exe','deno.exe')) {
-            if (-not (Test-Path (Join-Path $bundle $tool))) {
-              throw "Release bundle is missing media engine file: $tool"
-            }
-          }
-
-          $setupHash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$setupHash  DownTrack-WebSetup.exe" | Set-Content 'publish/release/DownTrack-WebSetup.exe.sha256' -Encoding ascii
-
-      - name: Smoke test WebSetup
-        shell: pwsh
-        run: |
-          $exe = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
-          $process = Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
-
-          if (-not $process.WaitForExit(10000)) {
-            Stop-Process -Id $process.Id -Force
-            throw "WebSetup smoke test timed out."
-          }
-
-          if ($process.ExitCode -ne 0) {
-            throw "WebSetup smoke test failed with code $($process.ExitCode)."
-          }
-
-      - name: Create or update GitHub release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = $env:RELEASE_TAG
-          $target = $env:GITHUB_SHA
-          $assets = @(
-            'publish/release/DownTrack-WebSetup.exe.sha256',
-            'publish/release/DownTrack-win-x64.zip',
-            'publish/release/DownTrack-win-x64.zip.sha256',
-            'publish/release/DownTrack-version.txt',
-            'publish/WebSetup/DownTrack-WebSetup.exe'
-          )
-
-          gh release view $tag 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag $assets --clobber
-          }
-          else {
-            gh release create $tag $assets --title "DownTrack $tag" --generate-notes --target $target
-          }
-
-      - name: End-to-end WebSetup install
-        shell: pwsh
-        timeout-minutes: 8
-        run: |
-          $installer = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
-          $process = Start-Process -FilePath $installer -PassThru
-
-          if (-not $process.WaitForExit(360000)) {
-            Stop-Process -Id $process.Id -Force
-            throw "WebSetup install timed out."
-          }
-
-          if ($process.ExitCode -ne 0) {
-            throw "WebSetup exited with code $($process.ExitCode)."
-          }
-
-          $installedExe = Join-Path $env:LOCALAPPDATA 'Programs/DownTrack/DownTrack.exe'
-          $versionFile = Join-Path $env:LOCALAPPDATA 'Programs/DownTrack/.downtrack-version'
-          $engineDir = Join-Path $env:LOCALAPPDATA 'DownTrack/bin'
-          $expected = $env:RELEASE_VERSION
-
-          if (-not (Test-Path $installedExe)) {
-            throw "Installed DownTrack.exe not found."
-          }
-
-          foreach ($tool in @('yt-dlp.exe', 'ffmpeg.exe', 'ffprobe.exe', 'deno.exe')) {
-            $toolPath = Join-Path $engineDir $tool
-            if (-not (Test-Path $toolPath)) {
-              throw "Installed media engine tool not found: $toolPath"
-            }
-          }
-
-          $logPath = Join-Path $env:LOCALAPPDATA 'DownTrack/installer.log'
-          if (-not (Test-Path $logPath)) {
-            throw "installer.log was not created."
-          }
-          $log = Get-Content $logPath -Raw
-          if ($log -match 'yt-dlp/yt-dlp/releases/latest/download|gyan.dev/ffmpeg/builds|denoland/deno/releases/latest/download') {
-            throw "WebSetup attempted a separate media-engine download. Engine must come from the release ZIP."
-          }
-
-          if (-not (Test-Path $versionFile)) {
-            throw "Installed version marker not found."
-          }
-
-          $version = (Get-Content $versionFile -Raw).Trim()
-          if ($version -ne $expected) {
-            throw "Installed version marker mismatch: $version"
-          }
-
-          $running = Get-Process -Name DownTrack -ErrorAction SilentlyContinue
-          if ($running) {
-            $running | Stop-Process -Force
-          }
-
-      - name: Upload final assets
-        uses: actions/upload-artifact@v4
-        with:
-          name: DownTrack-release
-          path: |
-            publish/release/*
-            publish/WebSetup/DownTrack-WebSetup.exe
-          if-no-files-found: error
-) {
-                if ($parts.Count -eq 1 -or ($parts[1..($parts.Count - 1)] -replace '^\*','') -contains $fileName) {
-                  return $parts[0].ToLowerInvariant()
-                }
-              }
-            }
-            throw "Checksum for $fileName was not found."
+            throw "Checksum not found for $fileName."
           }
 
           function Download-Verified([string]$url, [string]$checksumUrl, [string]$fileName) {
             $file = Join-Path $downloadRoot $fileName
-            $sum = Join-Path $downloadRoot ($fileName + '.sha256')
-            Write-Host "Downloading $fileName from $url"
+            $sum = Join-Path $downloadRoot ($fileName + '.sum')
+            Write-Host "Downloading $fileName"
             Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $file
             Invoke-WebRequest -UseBasicParsing -Uri $checksumUrl -OutFile $sum
             $expected = Get-ExpectedHash $sum $fileName
             $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
-            if ($actual -ne $expected) {
-              throw "SHA-256 mismatch for $fileName. Expected $expected, got $actual."
-            }
-            Write-Host "Verified $fileName : $actual"
+            if ($actual -ne $expected) { throw "SHA-256 mismatch for $fileName." }
             return $file
           }
 
-          $yt = Download-Verified 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS' 'yt-dlp.exe'
+$yt = Download-Verified 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS' 'yt-dlp.exe'
           Copy-Item $yt (Join-Path $engineRoot 'yt-dlp.exe') -Force
+$ff = Download-Verified 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256' 'ffmpeg-release-essentials.zip'
+          $ffDir = Join-Path $downloadRoot 'ffmpeg'; Expand-Archive -Path $ff -DestinationPath $ffDir -Force
+          $ffmpeg = Get-ChildItem $ffDir -Recurse -Filter 'ffmpeg.exe' | Select-Object -First 1; $ffprobe = Get-ChildItem $ffDir -Recurse -Filter 'ffprobe.exe' | Select-Object -First 1
+          if (-not $ffmpeg -or -not $ffprobe) { throw 'FFmpeg binaries not found.' }
+          Copy-Item $ffmpeg.FullName (Join-Path $engineRoot 'ffmpeg.exe') -Force; Copy-Item $ffprobe.FullName (Join-Path $engineRoot 'ffprobe.exe') -Force
+$deno = Download-Verified 'https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip' 'https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip.sha256sum' 'deno-x86_64-pc-windows-msvc.zip'
+          $denoDir = Join-Path $downloadRoot 'deno'; Expand-Archive -Path $deno -DestinationPath $denoDir -Force
+          $denoExe = Get-ChildItem $denoDir -Recurse -Filter 'deno.exe' | Select-Object -First 1; if (-not $denoExe) { throw 'Deno binary not found.' }
+          Copy-Item $denoExe.FullName (Join-Path $engineRoot 'deno.exe') -Force
+          foreach ($tool in @('yt-dlp.exe','ffmpeg.exe','ffprobe.exe','deno.exe')) { if (-not (Test-Path (Join-Path $engineRoot $tool))) { throw "Missing bundled tool: $tool" } }
 
-          $ffZip = Download-Verified 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256' 'ffmpeg-release-essentials.zip'
-          $ffExtract = Join-Path $downloadRoot 'ffmpeg'
-          Expand-Archive -Path $ffZip -DestinationPath $ffExtract -Force
-          $ffmpeg = Get-ChildItem $ffExtract -Recurse -Filter 'ffmpeg.exe' | Select-Object -First 1
-          $ffprobe = Get-ChildItem $ffExtract -Recurse -Filter 'ffprobe.exe' | Select-Object -First 1
-          if (-not $ffmpeg -or -not $ffprobe) {
-            throw 'FFmpeg package did not contain ffmpeg.exe and ffprobe.exe.'
-          }
-          Copy-Item $ffmpeg.FullName (Join-Path $engineRoot 'ffmpeg.exe') -Force
-          Copy-Item $ffprobe.FullName (Join-Path $engineRoot 'ffprobe.exe') -Force
-
-          $denoZip = Download-Verified 'https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip' 'https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip.sha256sum' 'deno-x86_64-pc-windows-msvc.zip'
-          $denoExtract = Join-Path $downloadRoot 'deno'
-          Expand-Archive -Path $denoZip -DestinationPath $denoExtract -Force
-          $deno = Get-ChildItem $denoExtract -Recurse -Filter 'deno.exe' | Select-Object -First 1
-          if (-not $deno) {
-            throw 'Deno package did not contain deno.exe.'
-          }
-          Copy-Item $deno.FullName (Join-Path $engineRoot 'deno.exe') -Force
-
-          foreach ($tool in @('yt-dlp.exe','ffmpeg.exe','ffprobe.exe','deno.exe')) {
-            if (-not (Test-Path (Join-Path $engineRoot $tool))) {
-              throw "Bundled media engine file missing: $tool"
-            }
-          }
-
-          Set-Content -Path (Join-Path $engineRoot 'engine-source.txt') -Encoding ascii -Value @(
-            'DownTrack bundled media engine'
-            'yt-dlp: https://github.com/yt-dlp/yt-dlp'
-            'FFmpeg: https://www.gyan.dev/ffmpeg/'
-            'Deno: https://github.com/denoland/deno'
-          )
-
-      - name: Prepare bundled media engine
+      - name: Package DownTrack
         shell: pwsh
         run: |
-          $engineRoot = Join-Path $PWD 'publish/DownTrack/bin'
-          $downloadRoot = Join-Path $PWD 'engine-downloads'
-          New-Item -ItemType Directory -Force -Path $engineRoot | Out-Null
-          New-Item -ItemType Directory -Force -Path $downloadRoot | Out-Null
-
-          function Get-ExpectedHash([string]$checksumPath, [string]$fileName) {
-            foreach ($line in Get-Content $checksumPath) {
-              $parts = $line.Trim() -split '\s+'
-              if ($parts.Count -ge 1 -and $parts[0].Length -eq 64 -and $parts[0] -match '^[0-9a-fA-F]{64}        run: |
           New-Item -ItemType Directory -Force -Path publish/release | Out-Null
-
           Compress-Archive -Path 'publish/DownTrack/*' -DestinationPath 'publish/release/DownTrack-win-x64.zip' -CompressionLevel Fastest
           $zipHash = (Get-FileHash 'publish/release/DownTrack-win-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
           "$zipHash  DownTrack-win-x64.zip" | Set-Content 'publish/release/DownTrack-win-x64.zip.sha256' -Encoding ascii
-
-          $version = $env:RELEASE_VERSION
-          $version | Set-Content 'publish/release/DownTrack-version.txt' -Encoding ascii
+          $env:RELEASE_VERSION | Set-Content 'publish/release/DownTrack-version.txt' -Encoding ascii
 
       - name: Publish WebSetup
         shell: pwsh
-        run: |
-          dotnet publish src/DownTrack.WebSetup/DownTrack.WebSetup.csproj -c Release -r win-x64 -o publish/WebSetup -p:Version=$env:RELEASE_VERSION
+        run: dotnet publish src/DownTrack.WebSetup/DownTrack.WebSetup.csproj -c Release -r win-x64 -o publish/WebSetup -p:Version=$env:RELEASE_VERSION
 
       - name: Validate WebSetup
         shell: pwsh
         run: |
-          $exe = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
-          if (-not (Test-Path $exe)) {
-            throw "WebSetup executable not found: $exe"
-          }
-
-          $files = Get-ChildItem 'publish/WebSetup' -File
-          $files | ForEach-Object {
-            Write-Host "WebSetup output: $($_.Name) ($($_.Length) bytes)"
-          }
-
-          if ($files.Count -ne 1 -or $files[0].Name -ne 'DownTrack-WebSetup.exe') {
-            throw "WebSetup must publish as one file."
-          }
-
-          $sizeMb = [Math]::Round((Get-Item $exe).Length / 1MB, 2)
-          Write-Host "WebSetup size: $sizeMb MB"
-
-          $setupHash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$setupHash  DownTrack-WebSetup.exe" | Set-Content 'publish/release/DownTrack-WebSetup.exe.sha256' -Encoding ascii
+          $exe = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'; if (-not (Test-Path $exe)) { throw 'WebSetup executable not found.' }
+          $files = Get-ChildItem 'publish/WebSetup' -File; if ($files.Count -ne 1 -or $files[0].Name -ne 'DownTrack-WebSetup.exe') { throw 'WebSetup is not single-file.' }
+          foreach ($tool in @('yt-dlp.exe','ffmpeg.exe','ffprobe.exe','deno.exe')) { if (-not (Test-Path (Join-Path $PWD 'publish/DownTrack/bin' $tool))) { throw "Release bundle missing: $tool" } }
+          $setupHash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant(); "$setupHash  DownTrack-WebSetup.exe" | Set-Content 'publish/release/DownTrack-WebSetup.exe.sha256' -Encoding ascii
 
       - name: Smoke test WebSetup
         shell: pwsh
         run: |
-          $exe = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
-          $process = Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
-
-          if (-not $process.WaitForExit(10000)) {
-            Stop-Process -Id $process.Id -Force
-            throw "WebSetup smoke test timed out."
-          }
-
-          if ($process.ExitCode -ne 0) {
-            throw "WebSetup smoke test failed with code $($process.ExitCode)."
-          }
+          $exe = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'; $p = Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
+          if (-not $p.WaitForExit(10000)) { Stop-Process -Id $p.Id -Force; throw 'WebSetup smoke test timed out.' }
+          if ($p.ExitCode -ne 0) { throw "WebSetup smoke test failed with code $($p.ExitCode)." }
 
       - name: Create or update GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = $env:RELEASE_TAG
-          $target = $env:GITHUB_SHA
-          $assets = @(
-            'publish/release/DownTrack-WebSetup.exe.sha256',
-            'publish/release/DownTrack-win-x64.zip',
-            'publish/release/DownTrack-win-x64.zip.sha256',
-            'publish/release/DownTrack-version.txt',
-            'publish/WebSetup/DownTrack-WebSetup.exe'
-          )
+          $assets = @('publish/release/DownTrack-win-x64.zip','publish/release/DownTrack-win-x64.zip.sha256','publish/release/DownTrack-version.txt','publish/WebSetup/DownTrack-WebSetup.exe','publish/release/DownTrack-WebSetup.exe.sha256')
+          gh release view $env:RELEASE_TAG 2>$null
+          if ($LASTEXITCODE -eq 0) { gh release upload $env:RELEASE_TAG $assets --clobber } else { gh release create $env:RELEASE_TAG $assets --target $env:GITHUB_SHA --title "DownTrack $env:RELEASE_TAG" --generate-notes }
 
-          gh release view $tag 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag $assets --clobber
-          }
-          else {
-            gh release create $tag $assets --title "DownTrack $tag" --generate-notes --target $target
-          }
-
-      - name: End-to-end WebSetup install
+      - name: End-to-end WebSetup validation
         shell: pwsh
-        timeout-minutes: 8
+        timeout-minutes: 15
         run: |
-          $installer = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
-          $process = Start-Process -FilePath $installer -PassThru
-
-          if (-not $process.WaitForExit(360000)) {
-            Stop-Process -Id $process.Id -Force
-            throw "WebSetup install timed out."
-          }
-
-          if ($process.ExitCode -ne 0) {
-            throw "WebSetup exited with code $($process.ExitCode)."
-          }
-
-          $installedExe = Join-Path $env:LOCALAPPDATA 'Programs/DownTrack/DownTrack.exe'
-          $versionFile = Join-Path $env:LOCALAPPDATA 'Programs/DownTrack/.downtrack-version'
-          $engineDir = Join-Path $env:LOCALAPPDATA 'DownTrack/bin'
-          $expected = $env:RELEASE_VERSION
-
-          if (-not (Test-Path $installedExe)) {
-            throw "Installed DownTrack.exe not found."
-          }
-
-          foreach ($tool in @('yt-dlp.exe', 'ffmpeg.exe', 'ffprobe.exe', 'deno.exe')) {
-            $toolPath = Join-Path $engineDir $tool
-            if (-not (Test-Path $toolPath)) {
-              throw "Installed media engine tool not found: $toolPath"
-            }
-          }
-
-          if (-not (Test-Path $versionFile)) {
-            throw "Installed version marker not found."
-          }
-
-          $version = (Get-Content $versionFile -Raw).Trim()
-          if ($version -ne $expected) {
-            throw "Installed version marker mismatch: $version"
-          }
-
-          $running = Get-Process -Name DownTrack -ErrorAction SilentlyContinue
-          if ($running) {
-            $running | Stop-Process -Force
-          }
-
-      - name: Upload final assets
-        uses: actions/upload-artifact@v4
-        with:
-          name: DownTrack-release
-          path: |
-            publish/release/*
-            publish/WebSetup/DownTrack-WebSetup.exe
-          if-no-files-found: error
-) {
-                if ($parts.Count -eq 1 -or ($parts[1..($parts.Count - 1)] -replace '^\*','') -contains $fileName) {
-                  return $parts[0].ToLowerInvariant()
-                }
-              }
-            }
-            throw "Checksum for $fileName was not found."
-          }
-
-          function Download-Verified([string]$url, [string]$checksumUrl, [string]$fileName) {
-            $file = Join-Path $downloadRoot $fileName
-            $sum = Join-Path $downloadRoot ($fileName + '.sha256')
-            Write-Host "Downloading $fileName from $url"
-            Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $file
-            Invoke-WebRequest -UseBasicParsing -Uri $checksumUrl -OutFile $sum
-            $expected = Get-ExpectedHash $sum $fileName
-            $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
-            if ($actual -ne $expected) {
-              throw "SHA-256 mismatch for $fileName. Expected $expected, got $actual."
-            }
-            Write-Host "Verified $fileName : $actual"
-            return $file
-          }
-
-          $yt = Download-Verified 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS' 'yt-dlp.exe'
-          Copy-Item $yt (Join-Path $engineRoot 'yt-dlp.exe') -Force
-
-          $ffZip = Download-Verified 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256' 'ffmpeg-release-essentials.zip'
-          $ffExtract = Join-Path $downloadRoot 'ffmpeg'
-          Expand-Archive -Path $ffZip -DestinationPath $ffExtract -Force
-          $ffmpeg = Get-ChildItem $ffExtract -Recurse -Filter 'ffmpeg.exe' | Select-Object -First 1
-          $ffprobe = Get-ChildItem $ffExtract -Recurse -Filter 'ffprobe.exe' | Select-Object -First 1
-          if (-not $ffmpeg -or -not $ffprobe) {
-            throw 'FFmpeg package did not contain ffmpeg.exe and ffprobe.exe.'
-          }
-          Copy-Item $ffmpeg.FullName (Join-Path $engineRoot 'ffmpeg.exe') -Force
-          Copy-Item $ffprobe.FullName (Join-Path $engineRoot 'ffprobe.exe') -Force
-
-          $denoZip = Download-Verified 'https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip' 'https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip.sha256sum' 'deno-x86_64-pc-windows-msvc.zip'
-          $denoExtract = Join-Path $downloadRoot 'deno'
-          Expand-Archive -Path $denoZip -DestinationPath $denoExtract -Force
-          $deno = Get-ChildItem $denoExtract -Recurse -Filter 'deno.exe' | Select-Object -First 1
-          if (-not $deno) {
-            throw 'Deno package did not contain deno.exe.'
-          }
-          Copy-Item $deno.FullName (Join-Path $engineRoot 'deno.exe') -Force
-
-          foreach ($tool in @('yt-dlp.exe','ffmpeg.exe','ffprobe.exe','deno.exe')) {
-            if (-not (Test-Path (Join-Path $engineRoot $tool))) {
-              throw "Bundled media engine file missing: $tool"
-            }
-          }
-
-          Set-Content -Path (Join-Path $engineRoot 'engine-source.txt') -Encoding ascii -Value @(
-            'DownTrack bundled media engine'
-            'yt-dlp: https://github.com/yt-dlp/yt-dlp'
-            'FFmpeg: https://www.gyan.dev/ffmpeg/'
-            'Deno: https://github.com/denoland/deno'
-          )
-
-      - name: Package release assets
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path publish/release | Out-Null
-
-          Compress-Archive -Path 'publish/DownTrack/*' -DestinationPath 'publish/release/DownTrack-win-x64.zip' -CompressionLevel Fastest
-          $zipHash = (Get-FileHash 'publish/release/DownTrack-win-x64.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$zipHash  DownTrack-win-x64.zip" | Set-Content 'publish/release/DownTrack-win-x64.zip.sha256' -Encoding ascii
-
-          $version = $env:RELEASE_VERSION
-          $version | Set-Content 'publish/release/DownTrack-version.txt' -Encoding ascii
-
-      - name: Publish WebSetup
-        shell: pwsh
-        run: |
-          dotnet publish src/DownTrack.WebSetup/DownTrack.WebSetup.csproj -c Release -r win-x64 -o publish/WebSetup -p:Version=$env:RELEASE_VERSION
-
-      - name: Validate WebSetup
-        shell: pwsh
-        run: |
-          $exe = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
-          if (-not (Test-Path $exe)) {
-            throw "WebSetup executable not found: $exe"
-          }
-
-          $files = Get-ChildItem 'publish/WebSetup' -File
-          $files | ForEach-Object {
-            Write-Host "WebSetup output: $($_.Name) ($($_.Length) bytes)"
-          }
-
-          if ($files.Count -ne 1 -or $files[0].Name -ne 'DownTrack-WebSetup.exe') {
-            throw "WebSetup must publish as one file."
-          }
-
-          $sizeMb = [Math]::Round((Get-Item $exe).Length / 1MB, 2)
-          Write-Host "WebSetup size: $sizeMb MB"
-
-          $setupHash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$setupHash  DownTrack-WebSetup.exe" | Set-Content 'publish/release/DownTrack-WebSetup.exe.sha256' -Encoding ascii
-
-      - name: Smoke test WebSetup
-        shell: pwsh
-        run: |
-          $exe = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
-          $process = Start-Process -FilePath $exe -ArgumentList '--smoke-test' -PassThru
-
-          if (-not $process.WaitForExit(10000)) {
-            Stop-Process -Id $process.Id -Force
-            throw "WebSetup smoke test timed out."
-          }
-
-          if ($process.ExitCode -ne 0) {
-            throw "WebSetup smoke test failed with code $($process.ExitCode)."
-          }
-
-      - name: Create or update GitHub release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = $env:RELEASE_TAG
-          $target = $env:GITHUB_SHA
-          $assets = @(
-            'publish/release/DownTrack-WebSetup.exe.sha256',
-            'publish/release/DownTrack-win-x64.zip',
-            'publish/release/DownTrack-win-x64.zip.sha256',
-            'publish/release/DownTrack-version.txt',
-            'publish/WebSetup/DownTrack-WebSetup.exe'
-          )
-
-          gh release view $tag 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag $assets --clobber
-          }
-          else {
-            gh release create $tag $assets --title "DownTrack $tag" --generate-notes --target $target
-          }
-
-      - name: End-to-end WebSetup install
-        shell: pwsh
-        timeout-minutes: 8
-        run: |
-          $installer = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'
-          $process = Start-Process -FilePath $installer -PassThru
-
-          if (-not $process.WaitForExit(360000)) {
-            Stop-Process -Id $process.Id -Force
-            throw "WebSetup install timed out."
-          }
-
-          if ($process.ExitCode -ne 0) {
-            throw "WebSetup exited with code $($process.ExitCode)."
-          }
-
-          $installedExe = Join-Path $env:LOCALAPPDATA 'Programs/DownTrack/DownTrack.exe'
-          $versionFile = Join-Path $env:LOCALAPPDATA 'Programs/DownTrack/.downtrack-version'
-          $engineDir = Join-Path $env:LOCALAPPDATA 'DownTrack/bin'
-          $expected = $env:RELEASE_VERSION
-
-          if (-not (Test-Path $installedExe)) {
-            throw "Installed DownTrack.exe not found."
-          }
-
-          foreach ($tool in @('yt-dlp.exe', 'ffmpeg.exe', 'ffprobe.exe', 'deno.exe')) {
-            $toolPath = Join-Path $engineDir $tool
-            if (-not (Test-Path $toolPath)) {
-              throw "Installed media engine tool not found: $toolPath"
-            }
-          }
-
-          if (-not (Test-Path $versionFile)) {
-            throw "Installed version marker not found."
-          }
-
-          $version = (Get-Content $versionFile -Raw).Trim()
-          if ($version -ne $expected) {
-            throw "Installed version marker mismatch: $version"
-          }
-
-          $running = Get-Process -Name DownTrack -ErrorAction SilentlyContinue
-          if ($running) {
-            $running | Stop-Process -Force
-          }
-
-      - name: Upload final assets
-        uses: actions/upload-artifact@v4
-        with:
-          name: DownTrack-release
-          path: |
-            publish/release/*
-            publish/WebSetup/DownTrack-WebSetup.exe
-          if-no-files-found: error
+          $installer = Join-Path $PWD 'publish/WebSetup/DownTrack-WebSetup.exe'; $p = Start-Process -FilePath $installer -PassThru
+          if (-not $p.WaitForExit(900000)) { Stop-Process -Id $p.Id -Force; throw 'WebSetup install timed out.' }
+          if ($p.ExitCode -ne 0) { throw "WebSetup exited with code $($p.ExitCode)." }
+          $installedExe = Join-Path $env:LOCALAPPDATA 'Programs/DownTrack/DownTrack.exe'; $versionFile = Join-Path $env:LOCALAPPDATA 'Programs/DownTrack/.downtrack-version'; $engineDir = Join-Path $env:LOCALAPPDATA 'DownTrack/bin'; $logPath = Join-Path $env:LOCALAPPDATA 'DownTrack/installer.log'
+          if (-not (Test-Path $installedExe)) { throw 'Installed DownTrack.exe not found.' }; if (-not (Test-Path $versionFile)) { throw 'Installed version marker not found.' }; if (-not (Test-Path $logPath)) { throw 'installer.log not found.' }
+          foreach ($tool in @('yt-dlp.exe','ffmpeg.exe','ffprobe.exe','deno.exe')) { if (-not (Test-Path (Join-Path $engineDir $tool))) { throw "Installed engine tool missing: $tool" } }
+          $log = Get-Content $logPath -Raw; if ($log -match 'yt-dlp/yt-dlp/releases/latest/download|gyan.dev/ffmpeg/builds|denoland/deno/releases/latest/download') { throw 'Installer downloaded media engine externally.' }
+          $installedVersion = (Get-Content $versionFile -Raw).Trim(); if ($installedVersion -ne $env:RELEASE_VERSION) { throw "Installed version mismatch: $installedVersion" }
+          Get-Process -Name DownTrack -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
