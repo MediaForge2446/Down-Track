@@ -7,7 +7,7 @@ using System.Windows.Threading;
 
 namespace DownTrack;
 
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private static readonly string CrashDirectory =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DownTrack");
