@@ -7,6 +7,7 @@
     <SolidColorBrush x:Key="Text" Color="#1A2230"/>
     <SolidColorBrush x:Key="Muted" Color="#667185"/>
     <SolidColorBrush x:Key="Accent" Color="#5B5BD6"/>
+    <SolidColorBrush x:Key="PendingText" Color="#9A6700"/>
     <Style TargetType="TextBlock"><Setter Property="FontFamily" Value="Segoe UI Variable"/></Style>
     <Style TargetType="Button"><Setter Property="FontFamily" Value="Segoe UI Variable"/><Setter Property="FontSize" Value="14"/><Setter Property="Padding" Value="12,8"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Background" Value="{StaticResource Surface2}"/><Setter Property="Foreground" Value="{StaticResource Text}"/><Setter Property="Cursor" Value="Hand"/></Style>
     <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Background" Value="{StaticResource Accent}"/><Setter Property="Foreground" Value="White"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
