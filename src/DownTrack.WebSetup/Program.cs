@@ -938,7 +938,7 @@ internal static class Program
             "מתקינים ברקע את רכיבי ‎.NET‎ הדרושים…",
             "מורידים את DownTrack העדכני…",
             "מאמתים את ההורדה…",
-            "מתקינים את DownTrack…",
+            "מתקינים את האפליקציה וכלי המדיה…",
             "DownTrack מוכן. פותחים את הספרייה שלך…",
             "יש לסגור את DownTrack כדי להשלים את העדכון.",
             "לא הצלחנו להשלים את ההורדה. בדוק את החיבור ונסה שוב.",
@@ -1166,7 +1166,7 @@ internal static class Program
             "Installing required .NET components…",
             "Downloading the latest DownTrack…",
             "Verifying download…",
-            "Installing DownTrack…",
+            "Installing application and media engine components…",
             "DownTrack is ready. Opening your library…",
             "Please close DownTrack to finish updating.",
             "We couldn’t finish the download. Check your connection and try again.",
@@ -1572,8 +1572,18 @@ internal static class Program
         var current = Languages.FirstOrDefault(
             x => x.Code.Equals(_language, StringComparison.OrdinalIgnoreCase));
 
+        if (_language.Equals("he", StringComparison.OrdinalIgnoreCase))
+        {
+            return "עברית / English ⌄";
+        }
+
+        if (_language.Equals("en", StringComparison.OrdinalIgnoreCase))
+        {
+            return "English / עברית ⌄";
+        }
+
         return string.IsNullOrWhiteSpace(current.Name)
-            ? "English ⌄"
+            ? "English / עברית ⌄"
             : current.Name + " ⌄";
     }
 
