@@ -12,8 +12,8 @@ Clean-start native Windows 11 WPF desktop application.
 - Persistent Pending Changes staging: media/file operations are not committed to disk until Save Changes.
 - 20 language catalogs under src/DownTrack.App/Locales, loaded dynamically at startup.
 - Hebrew and Arabic switch the interface to RTL.
-- First-run media-engine bootstrap stores binaries in %LocalAppData%\DownTrack\bin.
-- yt-dlp, FFmpeg, ffprobe and Deno are downloaded only when needed and their packages are checksum-verified before installation.
+- The WebSetup bootstrapper prepares yt-dlp, FFmpeg/ffprobe and Deno in %LocalAppData%\DownTrack\bin before launching the app.
+- The app silently verifies the media engine in the background and repairs missing tools when needed; downloads are checksum-verified before installation.
 - yt-dlp / FFmpeg run as hidden background child processes; DownTrack intentionally never opens a CMD/Terminal window.
 
 ## Web Installer
@@ -25,6 +25,7 @@ The public bootstrapper is DownTrack-WebSetup.exe.
 - The DownTrack ZIP is SHA-256 verified before extraction.
 - The installer checks for .NET 8 Desktop Runtime and silently installs it only when missing.
 - The application is installed to %LocalAppData%\Programs\DownTrack.
+- Media tools are installed to %LocalAppData%\DownTrack\bin and user library/state data is preserved separately.
 - User data and media state in %LocalAppData%\DownTrack are never replaced during application updates.
 - Interrupted installs recover from the local backup directory before retrying.
 - Start Menu and Desktop shortcuts are created automatically.
