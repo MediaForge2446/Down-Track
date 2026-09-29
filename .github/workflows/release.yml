@@ -202,6 +202,15 @@ jobs:
             }
           }
 
+          $logPath = Join-Path $env:LOCALAPPDATA 'DownTrack/installer.log'
+          if (-not (Test-Path $logPath)) {
+            throw "installer.log was not created."
+          }
+          $log = Get-Content $logPath -Raw
+          if ($log -match 'yt-dlp/yt-dlp/releases/latest/download|gyan.dev/ffmpeg/builds|denoland/deno/releases/latest/download') {
+            throw "WebSetup attempted a separate media-engine download. Engine must come from the release ZIP."
+          }
+
           if (-not (Test-Path $versionFile)) {
             throw "Installed version marker not found."
           }
