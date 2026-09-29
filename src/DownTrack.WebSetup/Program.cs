@@ -1117,16 +1117,18 @@ internal static class Program
     private static nint _footerHwnd;
     private static nint _retryHwnd;
     private static nint _backgroundBrush;
-    private static nint _accentBrush;
-    private static nint _mutedBrush;
+    private static nint _logoFont;
     private static nint _titleFont;
     private static nint _bodyFont;
     private static nint _smallFont;
+    private static bool _darkTheme;
 
     private static unsafe bool CreateMainWindow()
     {
         var hInstance = GetModuleHandleW(nint.Zero);
         const string className = "DownTrackWebSetupWindow";
+        _darkTheme = IsSystemDarkMode();
+        _backgroundBrush = CreateSolidBrush(ToColorRef(_darkTheme ? 0xFF202124u : 0xFFFFFFFFu));
 
         fixed (char* classNamePtr = className)
         {
@@ -1136,7 +1138,7 @@ internal static class Program
                 lpfnWndProc = &WindowProc,
                 hInstance = hInstance,
                 hCursor = LoadCursorW(nint.Zero, new nint(32512)),
-                hbrBackground = GetStockObject(WhiteBrush),
+                hbrBackground = _backgroundBrush,
                 lpszClassName = classNamePtr
             };
 
@@ -1181,18 +1183,18 @@ internal static class Program
         const uint SsCenter = 0x00000001;
         const uint BsPushButton = 0x00000000;
 
-        _brandHwnd = CreateChild(parent, "STATIC", "D", 34, 24, 46, 42, ControlBrand, SsCenter);
-        _titleHwnd = CreateChild(parent, "STATIC", "DownTrack", 92, 22, 190, 26, ControlTitle, 0);
-        _subtitleHwnd = CreateChild(parent, "STATIC", "Web Setup", 94, 47, 170, 18, ControlSubtitle, 0);
-        _readyTitleHwnd = CreateChild(parent, "STATIC", "Getting DownTrack ready…", 32, 98, 396, 28, ControlReadyTitle, SsCenter | SsCenterImage);
+        _brandHwnd = CreateChild(parent, "STATIC", "D", 155, 24, 150, 52, ControlBrand, SsCenter | SsCenterImage);
+        _titleHwnd = CreateChild(parent, "STATIC", "DownTrack", 100, 76, 260, 30, ControlTitle, SsCenter | SsCenterImage);
+        _subtitleHwnd = CreateChild(parent, "STATIC", "Web Setup", 0, 0, 1, 1, ControlSubtitle, 0);
+        _readyTitleHwnd = CreateChild(parent, "STATIC", "Getting DownTrack ready…", 48, 120, 364, 28, ControlReadyTitle, SsCenter | SsCenterImage);
 
-        _languageHwnd = CreateChild(parent, "BUTTON", "EN", 320, 22, 66, 32, ControlLanguage, BsPushButton);
-        _closeHwnd = CreateChild(parent, "BUTTON", "×", 398, 18, 40, 36, ControlClose, BsPushButton);
+        _languageHwnd = CreateChild(parent, "BUTTON", "EN", 360, 18, 54, 30, ControlLanguage, BsPushButton);
+        _closeHwnd = CreateChild(parent, "BUTTON", "×", 414, 14, 30, 32, ControlClose, BsPushButton);
 
-        _statusHwnd = CreateChild(parent, "STATIC", "", 32, 130, 396, 24, ControlStatus, SsCenter | SsCenterImage);
-        _progressHwnd = CreateChild(parent, "msctls_progress32", "", 32, 174, 396, 8, ControlProgress, PbsSmooth);
-        _footerHwnd = CreateChild(parent, "STATIC", "DownTrack", 32, 270, 396, 20, ControlFooter, SsCenter | SsCenterImage);
-        _retryHwnd = CreateChild(parent, "BUTTON", "Try again", 155, 216, 150, 38, ControlRetry, BsPushButton);
+        _statusHwnd = CreateChild(parent, "STATIC", "", 48, 150, 364, 24, ControlStatus, SsCenter | SsCenterImage);
+        _progressHwnd = CreateChild(parent, "msctls_progress32", "", 48, 188, 364, 8, ControlProgress, PbsSmooth);
+        _footerHwnd = CreateChild(parent, "STATIC", "DownTrack", 0, 0, 1, 1, ControlFooter, SsCenter | SsCenterImage);
+        _retryHwnd = CreateChild(parent, "BUTTON", "Try again", 155, 218, 150, 38, ControlRetry, BsPushButton);
 
         SetWindowTheme(_languageHwnd, "Explorer", null);
         SetWindowTheme(_closeHwnd, "Explorer", null);
@@ -1200,11 +1202,12 @@ internal static class Program
         SetWindowTheme(_progressHwnd, "Explorer", null);
 
         var dpi = (int)GetDpiForWindow(_hwnd);
+        _logoFont = CreateUiFont(26, 700, dpi);
         _titleFont = CreateUiFont(14, 600, dpi);
         _bodyFont = CreateUiFont(10.5f, 400, dpi);
         _smallFont = CreateUiFont(9.5f, 400, dpi);
 
-        ApplyFont(_brandHwnd, _titleFont);
+        ApplyFont(_brandHwnd, _logoFont);
         ApplyFont(_titleHwnd, _titleFont);
         ApplyFont(_subtitleHwnd, _smallFont);
         ApplyFont(_readyTitleHwnd, _titleFont);
@@ -1215,8 +1218,8 @@ internal static class Program
         ApplyFont(_footerHwnd, _smallFont);
         ApplyFont(_retryHwnd, _bodyFont);
 
-        EnableWindow(_statusHwnd, 0);
-        EnableWindow(_footerHwnd, 0);
+        ShowWindow(_subtitleHwnd, 0);
+        ShowWindow(_footerHwnd, 0);
 
         SendMessageW(_progressHwnd, 0x0401, 0, 100);
         ShowWindow(_retryHwnd, 0);
@@ -1395,6 +1398,9 @@ internal static class Program
                 RefreshControls();
                 return nint.Zero;
 
+            case WmCtlColorStatic:
+                return HandleStaticColor(wParam, lParam);
+
             case WmPaint:
             {
                 PAINTSTRUCT ps;
@@ -1404,6 +1410,8 @@ internal static class Program
             }
 
             case WmDestroy:
+                if (_backgroundBrush != nint.Zero) { DeleteObject(_backgroundBrush); _backgroundBrush = nint.Zero; }
+                if (_logoFont != nint.Zero) { DeleteObject(_logoFont); _logoFont = nint.Zero; }
                 if (_titleFont != nint.Zero) { DeleteObject(_titleFont); _titleFont = nint.Zero; }
                 if (_bodyFont != nint.Zero) { DeleteObject(_bodyFont); _bodyFont = nint.Zero; }
                 if (_smallFont != nint.Zero) { DeleteObject(_smallFont); _smallFont = nint.Zero; }
@@ -1412,6 +1420,45 @@ internal static class Program
         }
 
         return DefWindowProcW(hwnd, msg, wParam, lParam);
+    }
+
+    private static nint HandleStaticColor(nint hdc, nint childHwnd)
+    {
+        SetBkMode(hdc, TransparentBkMode);
+
+        var color = _darkTheme ? 0xFFF1F3F4u : 0xFF1E1E1Eu;
+        if (childHwnd == _brandHwnd)
+        {
+            color = 0xFF6659E8u;
+        }
+        else if (childHwnd == _statusHwnd)
+        {
+            color = _darkTheme ? 0xFFB7BEC6u : 0xFF555555u;
+        }
+        else if (childHwnd == _subtitleHwnd || childHwnd == _footerHwnd)
+        {
+            color = _darkTheme ? 0xFF8F969Du : 0xFF777777u;
+        }
+
+        SetTextColor(hdc, ToColorRef(color));
+        return _backgroundBrush;
+    }
+
+    private static bool IsSystemDarkMode()
+    {
+        try
+        {
+            var value = Microsoft.Win32.Registry.GetValue(
+                @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                "AppsUseLightTheme",
+                1);
+
+            return Convert.ToInt32(value ?? 1, CultureInfo.InvariantCulture) == 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static unsafe void ShowLanguageMenu(nint hwnd)
@@ -1696,9 +1743,6 @@ internal static class Program
     private static extern int DestroyWindow(nint hWnd);
 
     [DllImport("user32.dll")]
-    private static extern int EnableWindow(nint hWnd, int bEnable);
-
-    [DllImport("user32.dll")]
     private static extern int ShowWindow(nint hWnd, int nCmdShow);
 
     [DllImport("user32.dll")]
@@ -1754,20 +1798,20 @@ internal static class Program
         string lpString,
         int c);
 
-    [DllImport("user32.dll")]
-    private static extern uint SetTextColor(
-        nint hdc,
-        uint colorRef);
-
     [DllImport("gdi32.dll")]
     private static extern uint SetBkColor(
         nint hdc,
         uint colorRef);
 
-    [DllImport("user32.dll")]
+    [DllImport("gdi32.dll")]
     private static extern int SetBkMode(
         nint hdc,
         int mode);
+
+    [DllImport("gdi32.dll")]
+    private static extern uint SetTextColor(
+        nint hdc,
+        uint colorRef);
 
     [DllImport("gdi32.dll")]
     private static extern nint CreateSolidBrush(uint colorRef);
@@ -1849,9 +1893,6 @@ internal static class Program
 
     [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
     private static extern int SetWindowTheme(nint hwnd, string? subAppName, string? subIdList);
-
-    [DllImport("user32.dll")]
-    private static extern nint GetSysColorBrush(int nIndex);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int AppendMenuW(
