@@ -1603,6 +1603,51 @@ internal static class Program
         }
     }
 
+    private static unsafe void PaintInstallerDecorations(nint hdc)
+    {
+        using var accent = NativeBrush.FromRgb(0xFF6366F1u);
+        var oldBrush = SelectObject(hdc, accent.Handle);
+
+        var center = Width / 2;
+
+        // DownTrack mark: musical note + download arrow.
+        Ellipse(hdc, center - 56, 78, center - 30, 96);
+        Rectangle(hdc, center - 45, 48, center - 38, 86);
+
+        Rectangle(hdc, center + 8, 49, center + 15, 84);
+        var arrow = stackalloc POINT[3];
+        arrow[0] = new POINT { X = center - 9, Y = 78 };
+        arrow[1] = new POINT { X = center + 32, Y = 78 };
+        arrow[2] = new POINT { X = center + 12, Y = 104 };
+        Polygon(hdc, arrow, 3);
+
+        SelectObject(hdc, oldBrush);
+
+        // Minimal globe indicator beside the language selector.
+        using var globePen = NativePen.FromRgb(_darkTheme ? 0xFFB5BBC2u : 0xFF6B7280u);
+        var oldPen = SelectObject(hdc, globePen.Handle);
+        var oldGlobeBrush = SelectObject(hdc, GetStockObject(5));
+        Ellipse(hdc, Width - 142, 22, Width - 126, 38);
+        MoveToEx(hdc, Width - 134, 22, nint.Zero);
+        LineTo(hdc, Width - 134, 38);
+        MoveToEx(hdc, Width - 142, 30, nint.Zero);
+        LineTo(hdc, Width - 126, 30);
+        SelectObject(hdc, oldGlobeBrush);
+        SelectObject(hdc, oldPen);
+
+        // Error-state action button.
+        lock (UiGate)
+        {
+            if (_failed)
+            {
+                using var retryBrush = NativeBrush.FromRgb(0xFF6366F1u);
+                var oldRetry = SelectObject(hdc, retryBrush.Handle);
+                RoundRect(hdc, 180, 225, 320, 267, 20, 20);
+                SelectObject(hdc, oldRetry);
+            }
+        }
+    }
+
     private static uint ToColorRef(uint argb)
     {
         var r = (argb >> 16) & 0xFF;
