@@ -338,9 +338,9 @@ internal static class Program
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Fallback below uses the redirect target of the direct asset URL.
+            LogException("VERSION CHECK FAILED | url=" + LatestVersionUrl, ex);
         }
 
         var redirectVersion = await GetVersionFromRedirectAsync(cancellationToken);
